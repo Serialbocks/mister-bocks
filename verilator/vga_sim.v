@@ -4,7 +4,7 @@
 module top(
    input clk_sys /*verilator public_flat*/,
    input reset /*verilator public_flat*/,
-   input button, /*verilator public_flat*/
+   input button /*verilator public_flat*/,
 
    output [7:0] VGA_R /*verilator public_flat*/,
    output [7:0] VGA_G /*verilator public_flat*/,
@@ -13,9 +13,9 @@ module top(
    output VGA_HS,
    output VGA_VS,
    output VGA_HB,
-   output VGA_VB,
+   output VGA_VB
 );
-   wire [7:0] button = joystick ? 8'b111_000_00 : 8'hFF;
+   wire [7:0] color = button ? 8'b111_000_00 : 8'hFF;
 
    wire VGA_DE;
    vga vga (
