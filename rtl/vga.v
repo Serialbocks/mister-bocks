@@ -10,14 +10,16 @@
 module vga (
    // pixel clock
    input  pclk,
-	input [7:0] color,
+   input [7:0] color,
    // VGA output
    output reg	hs,
    output reg 	vs,
    output [7:0] r,
    output [7:0] g,
    output [7:0] b,
-	output VGA_DE
+   output reg VGA_HB,
+   output reg VGA_VB,
+   output VGA_DE
 );
 					
 // 640x400 70HZ VESA according to  http://tinyvga.com/vga-timing/640x400@70Hz
@@ -73,14 +75,22 @@ reg [7:0] pixel;
 reg de;
 
 always@(posedge pclk) begin
-        // The video counter is being reset at the begin of each vsync.
-        // Otherwise it's increased every fourth pixel in the visible area.
-        // At the end of the first three of four lines the counter is
-        // decreased by the total line length to display the same contents
-        // for four lines so 100 different lines are displayed on the 400
-        // VGA lines.
+	// The video counter is being reset at the begin of each vsync.
+	// Otherwise it's increased every fourth pixel in the visible area.
+	// At the end of the first three of four lines the counter is
+	// decreased by the total line length to display the same contents
+	// for four lines so 100 different lines are displayed on the 400
+	// VGA lines.
 
 	// visible area?
+	if(v_cnt < V)
+		VGA_VB<=0;
+	else
+		VGA_VB<=1;
+	if(h_cnt < H)
+		VGA_HB<=0;
+	else
+		VGA_HB<=1;
 	if((v_cnt < V) && (h_cnt < H)) begin
 		if(h_cnt[1:0] == 2'b11)
 			video_counter <= video_counter + 14'd1;
