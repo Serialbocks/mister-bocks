@@ -13,9 +13,7 @@
 #endif
 
 #include "sim_console.h"
-#include "sim_bus.h"
 #include "sim_video.h"
-#include "sim_audio.h"
 #include "sim_input.h"
 #include "sim_clock.h"
 
@@ -38,45 +36,29 @@ int multi_step_amount = 1024;
 
 // Debug GUI 
 // ---------
-const char* windowTitle = "Verilator Sim: Arcade-Centipede";
+const char* windowTitle = "Verilator Sim: Bocks";
 const char* windowTitle_Control = "Simulation control";
 const char* windowTitle_DebugLog = "Debug log";
 const char* windowTitle_Video = "VGA output";
 const char* windowTitle_Trace = "Trace/VCD control";
-const char* windowTitle_Audio = "Audio output";
 bool showDebugLog = true;
 DebugConsole console;
 MemoryEditor mem_edit;
 
-// HPS emulator
-// ------------
-SimBus bus(console);
-
 // Input handling
 // --------------
-SimInput input(12, console);
-const int input_right = 0;
-const int input_left = 1;
-const int input_down = 2;
-const int input_up = 3;
-const int input_fire1 = 4;
-const int input_fire2 = 5;
-const int input_start_1 = 6;
-const int input_start_2 = 7;
-const int input_coin_1 = 8;
-const int input_coin_2 = 9;
-const int input_coin_3 = 10;
-const int input_pause = 11;
+SimInput input(1, console);
+const int button = 0;
 
 // Video
 // -----
-#define VGA_WIDTH 320
-#define VGA_HEIGHT 240
-#define VGA_ROTATE -1  // 90 degrees anti-clockwise
+#define VGA_WIDTH 640
+#define VGA_HEIGHT 400
+#define VGA_ROTATE 0
 #define VGA_SCALE_X vga_scale
 #define VGA_SCALE_Y vga_scale
 SimVideo video(VGA_WIDTH, VGA_HEIGHT, VGA_ROTATE);
-float vga_scale = 2.5;
+float vga_scale = 1;
 
 // Verilog module
 // --------------
@@ -87,9 +69,8 @@ double sc_time_stamp() {	// Called by $time in Verilog.
 	return main_time;
 }
 
-int clk_sys_freq = 48000000;
-SimClock clk_48(1); // 48mhz
-SimClock clk_12(4); // 12mhz
+int clk_sys_freq = 25116279;
+SimClock clk_sys(1); // 25116279mhz
 
 // VCD trace logging
 // -----------------
@@ -116,19 +97,11 @@ void restore_model(const char* filenamep) {
 	os >> *top;
 }
 
-// Audio
-// -----
-#define DISABLE_AUDIO
-#ifndef DISABLE_AUDIO
-SimAudio audio(clk_sys_freq, true);
-#endif
-
 // Reset simulation variables and clocks
 void resetSim() {
 	main_time = 0;
 	top->reset = 1;
-	clk_48.Reset();
-	clk_12.Reset();
+	clk_sys.Reset();
 }
 
 int verilate() {
@@ -141,45 +114,32 @@ int verilate() {
 		if (main_time == initialReset) { top->reset = 0; }
 
 		// Clock dividers
-		clk_48.Tick();
-		clk_12.Tick();
+		clk_sys.Tick();
 
 		// Set clocks in core
-		top->clk_48 = clk_48.clk;
-		top->clk_12 = clk_12.clk;
+		top->clk_sys = clk_sys.clk;
 
 		// Simulate both edges of fastest clock
-		if (clk_48.clk != clk_48.old) {
+		if (clk_sys.clk != clk_sys.old) {
 
 			// System clock simulates HPS functions
-			if (clk_12.clk) {
+			if (clk_sys.clk) {
 				input.BeforeEval();
-				bus.BeforeEval();
 			}
 			top->eval();
 			if (Trace) {
 				if (!tfp->isOpen()) tfp->open(Trace_File);
 				tfp->dump(main_time); //Trace
 			}
-
-			// System clock simulates HPS functions
-			if (clk_12.clk) { bus.AfterEval(); }
 		}
-
-#ifndef DISABLE_AUDIO
-		if (clk_48.IsRising())
-		{
-			audio.Clock(top->AUDIO_L, top->AUDIO_R);
-		}
-#endif
 
 		// Output pixels on rising edge of pixel clock
-		if (clk_48.IsRising() && top->top__DOT__ce_pix) {
+		if (clk_sys.IsRising()) {
 			uint32_t colour = 0xFF000000 | top->VGA_B << 16 | top->VGA_G << 8 | top->VGA_R;
 			video.Clock(top->VGA_HB, top->VGA_VB, top->VGA_HS, top->VGA_VS, colour);
 		}
 
-		if (clk_48.IsRising()) {
+		if (clk_sys.IsRising()) {
 			main_time++;
 		}
 		return 1;
@@ -208,51 +168,13 @@ int main(int argc, char** argv, char** env) {
 	Verilated::setDebug(console);
 #endif
 
-	// Attach bus
-	bus.ioctl_addr = &top->ioctl_addr;
-	bus.ioctl_index = &top->ioctl_index;
-	bus.ioctl_wait = &top->ioctl_wait;
-	bus.ioctl_download = &top->ioctl_download;
-	bus.ioctl_upload = &top->ioctl_upload;
-	bus.ioctl_wr = &top->ioctl_wr;
-	bus.ioctl_dout = &top->ioctl_dout;
-	bus.ioctl_din = &top->ioctl_din;
-
-#ifndef DISABLE_AUDIO
-	audio.Initialise();
-#endif
-
 	// Set up input module
 	input.Initialise();
 #ifdef WIN32
-	input.SetMapping(input_up, DIK_UP);
-	input.SetMapping(input_right, DIK_RIGHT);
-	input.SetMapping(input_down, DIK_DOWN);
-	input.SetMapping(input_left, DIK_LEFT);
-	input.SetMapping(input_fire1, DIK_SPACE);
-	input.SetMapping(input_start_1, DIK_1);
-	input.SetMapping(input_start_2, DIK_2);
-	input.SetMapping(input_coin_1, DIK_5);
-	input.SetMapping(input_coin_2, DIK_6);
-	input.SetMapping(input_coin_3, DIK_7);
-	input.SetMapping(input_pause, DIK_P);
-#else
-	input.SetMapping(input_up, SDL_SCANCODE_UP);
-	input.SetMapping(input_right, SDL_SCANCODE_RIGHT);
-	input.SetMapping(input_down, SDL_SCANCODE_DOWN);
-	input.SetMapping(input_left, SDL_SCANCODE_LEFT);
-	input.SetMapping(input_fire1, SDL_SCANCODE_SPACE);
-	input.SetMapping(input_start_1, SDL_SCANCODE_1);
-	input.SetMapping(input_start_2, SDL_SCANCODE_2);
-	input.SetMapping(input_coin_1, SDL_SCANCODE_3);
-	input.SetMapping(input_coin_2, SDL_SCANCODE_4);
-	input.SetMapping(input_coin_3, SDL_SCANCODE_5);
-	input.SetMapping(input_pause, SDL_SCANCODE_P);
+	input.SetMapping(button, DIK_1);
 #endif
 	// Setup video output
 	if (video.Initialise(windowTitle) == 1) { return 1; }
-
-	bus.QueueDownload("./test.bin", 0, true);
 
 
 #ifdef WIN32
@@ -369,50 +291,13 @@ int main(int argc, char** argv, char** env) {
 		ImGui::Image(video.texture_id, ImVec2(video.output_width * VGA_SCALE_X, video.output_height * VGA_SCALE_Y));
 		ImGui::End();
 
-
-#ifndef DISABLE_AUDIO
-
-		ImGui::Begin(windowTitle_Audio);
-		ImGui::SetWindowPos(windowTitle_Audio, ImVec2(windowX, windowHeight), ImGuiCond_Once);
-		ImGui::SetWindowSize(windowTitle_Audio, ImVec2(windowWidth, 250), ImGuiCond_Once);
-
-
-		//float vol_l = ((signed short)(top->AUDIO_L) / 256.0f) / 256.0f;
-		//float vol_r = ((signed short)(top->AUDIO_R) / 256.0f) / 256.0f;
-		//ImGui::ProgressBar(vol_l + 0.5f, ImVec2(200, 16), 0); ImGui::SameLine();
-		//ImGui::ProgressBar(vol_r + 0.5f, ImVec2(200, 16), 0);
-
-		int ticksPerSec = (24000000 / 60);
-		if (run_enable) {
-			audio.CollectDebug((signed short)top->AUDIO_L, (signed short)top->AUDIO_R);
-		}
-		int channelWidth = (windowWidth / 2) - 16;
-		ImPlot::CreateContext();
-		if (ImPlot::BeginPlot("Audio - L", ImVec2(channelWidth, 220), ImPlotFlags_NoLegend | ImPlotFlags_NoMenus | ImPlotFlags_NoTitle)) {
-			ImPlot::SetupAxes("T", "A", ImPlotAxisFlags_NoLabel | ImPlotAxisFlags_NoTickMarks, ImPlotAxisFlags_AutoFit | ImPlotAxisFlags_NoLabel | ImPlotAxisFlags_NoTickMarks);
-			ImPlot::SetupAxesLimits(0, 1, -1, 1, ImPlotCond_Once);
-			ImPlot::PlotStairs("", audio.debug_positions, audio.debug_wave_l, audio.debug_max_samples, audio.debug_pos);
-			ImPlot::EndPlot();
-		}
-		ImGui::SameLine();
-		if (ImPlot::BeginPlot("Audio - R", ImVec2(channelWidth, 220), ImPlotFlags_NoLegend | ImPlotFlags_NoMenus | ImPlotFlags_NoTitle)) {
-			ImPlot::SetupAxes("T", "A", ImPlotAxisFlags_NoLabel | ImPlotAxisFlags_NoTickMarks, ImPlotAxisFlags_AutoFit | ImPlotAxisFlags_NoLabel | ImPlotAxisFlags_NoTickMarks);
-			ImPlot::SetupAxesLimits(0, 1, -1, 1, ImPlotCond_Once);
-			ImPlot::PlotStairs("", audio.debug_positions, audio.debug_wave_r, audio.debug_max_samples, audio.debug_pos);
-			ImPlot::EndPlot();
-		}
-		ImPlot::DestroyContext();
-		ImGui::End();
-#endif
-
 		video.UpdateTexture();
 
-
 		// Pass inputs to sim
-		top->inputs = 0;
+		top->button = 0;
 		for (int i = 0; i < input.inputCount; i++)
 		{
-			if (input.inputs[i]) { top->inputs |= (1 << i); }
+			if (input.inputs[i]) { top->button |= (1 << i); }
 		}
 
 		// Run simulation
@@ -429,10 +314,6 @@ int main(int argc, char** argv, char** env) {
 
 	// Clean up before exit
 	// --------------------
-
-#ifndef DISABLE_AUDIO
-	audio.CleanUp();
-#endif 
 	video.CleanUp();
 	input.CleanUp();
 
