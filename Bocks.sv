@@ -247,14 +247,12 @@ pll pll
 );
 
 ///////////////////////////////////////////////////
-wire [7:0] color = joy[4] ? 8'b111_000_00 : 8'hFF;
 
 
 assign CLK_VIDEO = clk_sys;
 assign CE_PIXEL = 1;
-vga vga (
+bocks_top bocks_top (
 	 .pclk  (clk_sys),
-	 .color (color),
 	 .hs    (VGA_HS),
 	 .vs    (VGA_VS),
 	 .r     (VGA_R),

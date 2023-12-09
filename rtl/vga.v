@@ -1,6 +1,5 @@
 
-// A simple system-on-a-chip (SoC) for the MiST
-// (c) 2015 Till Harbaum
+// (c) 2023 John Jones
 
 // VGA controller generating 160x100 pixles. The VGA mode ised is 640x400
 // combining every 4 row and column
@@ -10,7 +9,13 @@
 module vga (
    // pixel clock
    input  pclk,
-   input [7:0] color,
+
+   // cpu write
+   input cpu_clk,
+   input cpu_wr,
+   input [31:0] cpu_addr,
+   input [7:0] cpu_data,
+
    // VGA output
    output reg	hs,
    output reg 	vs,
@@ -34,12 +39,22 @@ parameter VFP = 12;     // unused time before vsync
 parameter VS  = 2;      // width of vsync
 parameter VBP = 35;     // unused time after vsync
 
+parameter PIXEL_COUNT = 256000; // 640 * 400
 
 reg[9:0]  h_cnt;        // horizontal pixel counter
 reg[9:0]  v_cnt;        // vertical pixel counter
 
 reg hblank;
 reg vblank;
+
+reg [7:0] vmem [PIXEL_COUNT-1:0];
+
+// cpu write to vmem
+always@(posedge cpu_clk) begin
+	if(cpu_wr && (cpu_addr < PIXEL_COUNT)) begin
+		vmem[cpu_addr] <= cpu_data;
+	end
+end
 
 // both counters count from the begin of the visibla area
 
@@ -95,7 +110,7 @@ always@(posedge pclk) begin
 		if(h_cnt[1:0] == 2'b11)
 			video_counter <= video_counter + 14'd1;
 		
-		pixel <= (v_cnt[2] ^ h_cnt[2])?8'h00:color;    // checkboard
+		pixel <= vmem[video_counter];
 		de<=1;
 	end else begin
 		if(h_cnt == H+HFP) begin
