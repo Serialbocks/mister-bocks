@@ -15,12 +15,10 @@ module top(
    output VGA_HB,
    output VGA_VB
 );
-   wire [7:0] color = button ? 8'b111_000_00 : 8'hFF;
 
    wire VGA_DE;
-   vga vga (
+   bocks_top bocks_top (
    	 .pclk  (clk_sys),
-   	 .color (color),
    	 .hs    (VGA_HS),
    	 .vs    (VGA_VS),
    	 .r     (VGA_R),
