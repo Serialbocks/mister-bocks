@@ -43,7 +43,7 @@ always@(posedge pclk) begin
 end
 
 reg cpu_init = 1'b0;
-reg cpu_wr = 1'b1;
+reg cpu_wr = 1'b0;
 reg [7:0] cpu_data = 8'b11100000;
 reg [31:0] cpu_addr = 32'h00000000;
 
@@ -52,7 +52,8 @@ always@(posedge pclk) begin
 	if(cpu_addr < PIXEL_COUNT && v_cnt < V && h_cnt < H) begin
 		cpu_wr <= 1'b1;
       cpu_init <= 1'b1;
-      cpu_addr <= cpu_addr + 1'b1;
+      if(v_cnt > 0 || h_cnt > 0)
+         cpu_addr <= cpu_addr + 1'b1;
       if(v_cnt < 300) begin
          if(h_cnt < 212)
             cpu_data <= 8'b11100000;

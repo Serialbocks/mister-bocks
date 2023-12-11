@@ -116,7 +116,7 @@ always@(posedge pclk) begin
 		if(h_cnt == H+HFP) begin
 			if(v_cnt == V+VFP)
 				video_counter <= 32'd0;
-		de<=0;
+			de<=0;
 		end
 			
 		pixel <= 8'h00;   // black
