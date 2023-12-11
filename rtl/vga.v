@@ -107,8 +107,7 @@ always@(posedge pclk) begin
 	else
 		VGA_HB<=1;
 	if((v_cnt < V) && (h_cnt < H)) begin
-		if(h_cnt[1:0] == 2'b11)
-			video_counter <= video_counter + 32'd1;
+		video_counter <= video_counter + 32'd1;
 		
 		pixel <= vmem[video_counter];
 		de<=1;
@@ -116,8 +115,8 @@ always@(posedge pclk) begin
 		if(h_cnt == H+HFP) begin
 			if(v_cnt == V+VFP)
 				video_counter <= 32'd0;
-			else if((v_cnt < V) && (v_cnt[1:0] != 2'b11))
-				video_counter <= video_counter - 32'd160;
+			else if((v_cnt < V))
+				video_counter <= video_counter - 32'd640;
 		de<=0;
 		end
 			
