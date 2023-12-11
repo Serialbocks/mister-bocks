@@ -49,16 +49,24 @@ reg [31:0] cpu_addr = 32'h00000000;
 
 
 always@(posedge pclk) begin
-	if(cpu_addr < PIXEL_COUNT) begin
+	if(cpu_addr < PIXEL_COUNT && v_cnt < V && h_cnt < H) begin
 		cpu_wr <= 1'b1;
       cpu_init <= 1'b1;
       cpu_addr <= cpu_addr + 1'b1;
-      if(h_cnt < 212)
-         cpu_data <= 8'b11100000;
-      else if(h_cnt >= 212 && h_cnt < 424)
-         cpu_data <= 8'b00011100;
-      else
-         cpu_data <= 8'b00000011;
+      if(v_cnt < 300) begin
+         if(h_cnt < 212)
+            cpu_data <= 8'b11100000;
+         else if(h_cnt >= 212 && h_cnt < 424)
+            cpu_data <= 8'b00011100;
+         else
+            cpu_data <= 8'b00000011;
+      end else begin
+         if(h_cnt < 320)
+            cpu_data <= 8'b11111111;
+         else
+            cpu_data <= 8'b00000000;
+      end
+
 	end
    else begin
       cpu_wr <= 1'b0;

@@ -111,12 +111,11 @@ always@(posedge pclk) begin
 		
 		pixel <= vmem[video_counter];
 		de<=1;
-	end else begin
+	end 
+	else begin
 		if(h_cnt == H+HFP) begin
 			if(v_cnt == V+VFP)
 				video_counter <= 32'd0;
-			else if((v_cnt < V))
-				video_counter <= video_counter - 32'd640;
 		de<=0;
 		end
 			
