@@ -203,13 +203,12 @@ assign VIDEO_ARY = (!ar) ? 12'd3 : 12'd0;
 `include "build_id.v"
 localparam CONF_STR = {
 	"Bocks;;",
+	"F1.PF;",
 	"-;",
 	"O89,Aspect ratio,Original,Full Screen,[ARC1],[ARC2];",
 	"-;",
 	"-;",
 	"-;",
-	"J1,Red;",
-	"jn,A;",
 	"V,v",`BUILD_DATE
 
 
@@ -220,16 +219,13 @@ localparam CONF_STR = {
 // HPS is the module that communicates between the linux and fpga
 //
 wire [31:0] status;
-wire [31:0] joy;
 
 hps_io #(.STRLEN(($size(CONF_STR)>>3)) , .PS2DIV(1000), .WIDE(1)) hps_io
 (
 	.clk_sys(clk_sys),
 	.HPS_BUS(HPS_BUS),
 	.status(status),
-	.joystick_0(joy),
 	.conf_str(CONF_STR)
-	
 );
 
 
@@ -252,13 +248,13 @@ pll pll
 assign CLK_VIDEO = clk_sys;
 assign CE_PIXEL = 1;
 bocks_top bocks_top (
-	 .pclk  (clk_sys),
-	 .hs    (VGA_HS),
-	 .vs    (VGA_VS),
-	 .r     (VGA_R),
-	 .g     (VGA_G),
-	 .b     (VGA_B),
-	 .VGA_DE(VGA_DE)
+	.pclk  (clk_sys),
+	.hs    (VGA_HS),
+	.vs    (VGA_VS),
+	.r     (VGA_R),
+	.g     (VGA_G),
+	.b     (VGA_B),
+	.VGA_DE(VGA_DE)
 );
 			
 			

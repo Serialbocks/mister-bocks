@@ -1,6 +1,7 @@
 module bocks_top (
    // pixel clock
    input  pclk,
+
    // VGA output
    output 	hs,
    output 	vs,
@@ -24,6 +25,20 @@ parameter VBP = 35;     // unused time after vsync
 
 parameter PIXEL_COUNT = 256000; // 640 * 400
 
+parameter FONT_NUM_CHARS = 96;
+parameter FONT_BMP_SIZE = 768;
+
+parameter CHAR_WIDTH = 8;
+parameter CHAR_HEIGHT = 8;
+parameter SCREEN_CHAR_WIDTH = 80;
+parameter SCREEN_CHAR_HEIGHT = 50;
+
+reg [7:0] font_bmp [FONT_BMP_SIZE-1:0];
+
+initial begin
+   $readmemh("font.mif", font_bmp, 0, FONT_BMP_SIZE-1);
+end
+
 reg[9:0]  h_cnt;        // horizontal pixel counter
 reg[9:0]  v_cnt;        // vertical pixel counter
 
@@ -46,7 +61,6 @@ reg cpu_init = 1'b0;
 reg cpu_wr = 1'b0;
 reg [7:0] cpu_data = 8'b11100000;
 reg [31:0] cpu_addr = 32'h00000000;
-
 
 always@(posedge pclk) begin
 	if(cpu_addr < PIXEL_COUNT && v_cnt < V && h_cnt < H) begin
