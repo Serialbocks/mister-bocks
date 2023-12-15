@@ -43,10 +43,6 @@ parameter PIXEL_COUNT = 256000; // 640 * 400
 
 reg[9:0]  h_cnt;        // horizontal pixel counter
 reg[9:0]  v_cnt;        // vertical pixel counter
-
-reg hblank;
-reg vblank;
-
 reg [7:0] vmem [PIXEL_COUNT-1:0];
 
 // cpu write to vmem
@@ -66,7 +62,6 @@ always@(posedge pclk) begin
 	// generate negative hsync signal
 	if(h_cnt == H+HFP)    hs <= 1'b0;
 	if(h_cnt == H+HFP+HS) hs <= 1'b1;
-	if(h_cnt == H+HFP+HS) hblank <= 1'b1; else hblank<=1'b0;
 
 	end
 
@@ -80,7 +75,6 @@ always@(posedge pclk) begin
 	        // generate positive vsync signal
 		if(v_cnt == V+VFP)    vs <= 1'b1;
 		if(v_cnt == V+VFP+VS) vs <= 1'b0;
-		if(v_cnt == V+VFP+VS) vblank <= 1'b1; else vblank<=1'b0;
 	end
 end
 

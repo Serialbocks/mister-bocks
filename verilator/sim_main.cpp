@@ -23,6 +23,7 @@
 
 #include <iostream>
 #include <fstream>
+#include <sim_bus.h>
 using namespace std;
 
 // Simulation control
@@ -45,6 +46,10 @@ bool showDebugLog = true;
 DebugConsole console;
 MemoryEditor mem_edit;
 
+// HPS emulator
+// ------------
+SimBus bus(console);
+
 // Input handling
 // --------------
 SimInput input(1, console);
@@ -58,7 +63,7 @@ const int button = 0;
 #define VGA_SCALE_X vga_scale
 #define VGA_SCALE_Y vga_scale
 SimVideo video(VGA_WIDTH, VGA_HEIGHT, VGA_ROTATE);
-float vga_scale = 1;
+float vga_scale = 1.5f;
 
 // Verilog module
 // --------------
@@ -126,7 +131,9 @@ int verilate() {
 			if (clk_sys.clk) {
 				input.BeforeEval();
 			}
+			if (clk_sys.clk) { bus.BeforeEval(); }
 			top->eval();
+			if (clk_sys.clk) { bus.AfterEval(); }
 			if (Trace) {
 				if (!tfp->isOpen()) tfp->open(Trace_File);
 				tfp->dump(main_time); //Trace
@@ -168,6 +175,16 @@ int main(int argc, char** argv, char** env) {
 	Verilated::setDebug(console);
 #endif
 
+	// Attach bus
+	bus.ioctl_addr = &top->ioctl_addr;
+	bus.ioctl_index = &top->ioctl_index;
+	bus.ioctl_wait = &top->ioctl_wait;
+	bus.ioctl_download = &top->ioctl_download;
+	//bus.ioctl_upload = &top->ioctl_upload;
+	bus.ioctl_wr = &top->ioctl_wr;
+	bus.ioctl_dout = &top->ioctl_dout;
+	//bus.ioctl_din = &top->ioctl_din;
+
 	// Set up input module
 	input.Initialise();
 #ifdef WIN32
@@ -176,6 +193,7 @@ int main(int argc, char** argv, char** env) {
 	// Setup video output
 	if (video.Initialise(windowTitle) == 1) { return 1; }
 
+	bus.QueueDownload("font.pf", 0);
 
 #ifdef WIN32
 	MSG msg;
