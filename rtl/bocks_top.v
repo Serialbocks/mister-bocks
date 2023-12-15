@@ -19,16 +19,16 @@ module bocks_top (
 
 parameter PIXEL_COUNT = 256000; // 640 * 400
 parameter PIXEL_WIDTH = 640;
-parameter PIXEL_REVERSE_V_END = 5120;
-parameter PIXEL_FORWARD_H_END = 632;
+parameter PIXEL_REVERSE_V_END = 10240;
+parameter PIXEL_FORWARD_H_END = 624;
 
 parameter FONT_NUM_CHARS = 96;
 parameter FONT_BMP_SIZE = 768;
 
-parameter CHAR_WIDTH = 7'd8;
-parameter CHAR_HEIGHT = 7'd8;
-parameter SCREEN_CHAR_WIDTH = 80;
-parameter SCREEN_CHAR_HEIGHT = 50;
+parameter CHAR_WIDTH = 7'd16;
+parameter CHAR_HEIGHT = 7'd16;
+parameter SCREEN_CHAR_WIDTH = 40;
+parameter SCREEN_CHAR_HEIGHT = 25;
 parameter WHITE = 8'hff;
 parameter BLACK = 8'h00;
 
@@ -55,7 +55,7 @@ always@(posedge pclk) begin
    end
    else if(char_cnt < FONT_NUM_CHARS) begin
       cpu_wr <= 1'b1;
-      cpu_data <= font_bmp[bmp_index][3'd7 - char_h_bit_cnt[2:0]] == 1'b1 ? WHITE : BLACK;
+      cpu_data <= font_bmp[bmp_index][3'd7 - char_h_bit_cnt[3:1]] == 1'b1 ? WHITE : BLACK;
 
 	   if(char_h_bit_cnt < CHAR_WIDTH) begin
          char_h_bit_cnt <= char_h_bit_cnt + 7'b1;
@@ -69,7 +69,8 @@ always@(posedge pclk) begin
          if(char_v_bit_cnt < CHAR_HEIGHT) begin
             char_v_bit_cnt <= char_v_bit_cnt + 7'b1;
             cpu_addr <= cpu_addr + PIXEL_FORWARD_H_END;
-            bmp_index <= bmp_index + 10'b1;
+            if(~char_v_bit_cnt[0])
+               bmp_index <= bmp_index + 10'b1;
          end
          else begin
             // next character
@@ -88,7 +89,7 @@ always@(posedge pclk) begin
    end 
    else begin
       cpu_addr <= 32'h00000000;
-      char_cnt <= char_cnt + 1'b1;
+      char_cnt <= 7'b0;
       char_h_bit_cnt <= 7'd0;
       char_v_bit_cnt <= 7'd0;
       char_h_cnt <= 7'd0;
