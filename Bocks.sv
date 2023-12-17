@@ -268,7 +268,7 @@ bocks_top bocks_top (
 	.VGA_DE(VGA_DE),
 	.ioctl_dout(ioctl_dout),
 	.ioctl_wr(ioctl_wr & ioctl_download),
-	.ioctl_addr ( ioctl_addr    ),
+	.ioctl_addr ( ioctl_addr    )
 );
 			
 			

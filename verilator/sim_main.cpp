@@ -58,7 +58,7 @@ const int button = 0;
 // Video
 // -----
 #define VGA_WIDTH 640
-#define VGA_HEIGHT 400
+#define VGA_HEIGHT 480
 #define VGA_ROTATE 0
 #define VGA_SCALE_X vga_scale
 #define VGA_SCALE_Y vga_scale
@@ -74,7 +74,7 @@ double sc_time_stamp() {	// Called by $time in Verilog.
 	return main_time;
 }
 
-int clk_sys_freq = 25116279;
+int clk_sys_freq = 25175644;
 SimClock clk_sys(1); // 25116279mhz
 
 // VCD trace logging

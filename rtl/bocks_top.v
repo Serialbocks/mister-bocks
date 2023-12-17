@@ -17,18 +17,20 @@ module bocks_top (
    input [26:0] ioctl_addr
 );
 
-parameter PIXEL_COUNT = 256000; // 640 * 400
+parameter SCALE = 2;
+parameter PIXEL_COUNT = 307200; // 640 * 480
 parameter PIXEL_WIDTH = 640;
+parameter PIXEL_HEIGHT = 480;
 parameter PIXEL_REVERSE_V_END = 10240;
-parameter PIXEL_FORWARD_H_END = 624;
+parameter PIXEL_FORWARD_H_END = PIXEL_WIDTH - { 25'd0, CHAR_WIDTH };
 
 parameter FONT_NUM_CHARS = 96;
 parameter FONT_BMP_SIZE = 768;
 
-parameter CHAR_WIDTH = 7'd16;
-parameter CHAR_HEIGHT = 7'd16;
-parameter SCREEN_CHAR_WIDTH = 40;
-parameter SCREEN_CHAR_HEIGHT = 25;
+parameter CHAR_WIDTH = (7'd8 << (SCALE - 1));
+parameter CHAR_HEIGHT = (7'd8 << (SCALE - 1));
+parameter SCREEN_CHAR_WIDTH = (PIXEL_WIDTH >> (3 + SCALE - 1));
+parameter SCREEN_CHAR_HEIGHT = (PIXEL_HEIGHT >> (3 + SCALE - 1));
 parameter WHITE = 8'hff;
 parameter BLACK = 8'h00;
 
@@ -52,10 +54,17 @@ reg [9:0] bmp_index = 10'd0;
 always@(posedge pclk) begin
    if(ioctl_wr) begin
       font_bmp[ioctl_addr[9:0]] <= ioctl_dout;
+      cpu_addr <= 32'h00000000;
+      char_cnt <= 7'b0;
+      char_h_bit_cnt <= 7'd0;
+      char_v_bit_cnt <= 7'd0;
+      char_h_cnt <= 7'd0;
+      bmp_index <= 10'd0;
+      cpu_wr <= 1'b0;
    end
    else if(char_cnt < FONT_NUM_CHARS) begin
       cpu_wr <= 1'b1;
-      cpu_data <= font_bmp[bmp_index][3'd7 - char_h_bit_cnt[3:1]] == 1'b1 ? WHITE : BLACK;
+      cpu_data <= font_bmp[bmp_index][3'd7 - char_h_bit_cnt[3:1]] ? WHITE : BLACK;
 
 	   if(char_h_bit_cnt < CHAR_WIDTH) begin
          char_h_bit_cnt <= char_h_bit_cnt + 7'b1;
@@ -77,7 +86,7 @@ always@(posedge pclk) begin
             char_v_bit_cnt <= 7'b0;
             char_cnt <= char_cnt + 7'b1;
             bmp_index <= { char_cnt + 7'b1, 3'b0 };
-            if(char_h_cnt < SCREEN_CHAR_WIDTH - 1'b1) begin
+            if(char_h_cnt < SCREEN_CHAR_WIDTH[6:0] - 1'b1) begin
                char_h_cnt <= char_h_cnt + 1'b1;
                cpu_addr <= cpu_addr - PIXEL_REVERSE_V_END;
             end else begin
@@ -89,7 +98,7 @@ always@(posedge pclk) begin
    end 
    else begin
       cpu_addr <= 32'h00000000;
-      char_cnt <= 7'b0;
+      //char_cnt <= 7'b0;
       char_h_bit_cnt <= 7'd0;
       char_v_bit_cnt <= 7'd0;
       char_h_cnt <= 7'd0;
