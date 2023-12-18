@@ -219,13 +219,24 @@ localparam CONF_STR = {
 // HPS is the module that communicates between the linux and fpga
 //
 wire [31:0] status;
+wire        ioctl_download;
+wire  [7:0] ioctl_dout;
+wire        ioctl_wr;
+wire [26:0] ioctl_addr;
+wire  [7:0] ioctl_index;
 
-hps_io #(.STRLEN(($size(CONF_STR)>>3)) , .PS2DIV(1000), .WIDE(1)) hps_io
+hps_io #(.STRLEN(($size(CONF_STR)>>3)) , .PS2DIV(1000), .WIDE(0)) hps_io
 (
 	.clk_sys(clk_sys),
 	.HPS_BUS(HPS_BUS),
 	.status(status),
-	.conf_str(CONF_STR)
+	.conf_str(CONF_STR),
+
+	.ioctl_download(ioctl_download),
+	.ioctl_addr(ioctl_addr),
+	.ioctl_wr(ioctl_wr),
+	.ioctl_dout(ioctl_dout),
+	.ioctl_index(ioctl_index),
 );
 
 
@@ -254,7 +265,10 @@ bocks_top bocks_top (
 	.r     (VGA_R),
 	.g     (VGA_G),
 	.b     (VGA_B),
-	.VGA_DE(VGA_DE)
+	.VGA_DE(VGA_DE),
+	.ioctl_dout(ioctl_dout),
+	.ioctl_wr(ioctl_wr & ioctl_download),
+	.ioctl_addr ( ioctl_addr    )
 );
 			
 			
