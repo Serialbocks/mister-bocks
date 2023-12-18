@@ -76,7 +76,7 @@ always@(posedge pclk) begin
          if(char_v_bit_cnt < CHAR_HEIGHT) begin
             char_v_bit_cnt <= char_v_bit_cnt + 7'b1;
             cpu_addr <= cpu_addr + PIXEL_FORWARD_H_END;
-            if(char_v_bit_cnt[0])
+            if(SCALE == 1 || char_v_bit_cnt[SCALE - 2])
                bmp_index <= bmp_index + 10'b1;
          end
          else begin
