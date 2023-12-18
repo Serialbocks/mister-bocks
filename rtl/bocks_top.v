@@ -48,6 +48,16 @@ reg [6:0] char_v_bit_cnt = 7'd0;
 reg [6:0] char_h_cnt = 7'd0;
 reg [9:0] bmp_index;
 
+// test text output
+wire [15:0] byte_text;
+wire [10:0] text_addr;
+assign text_addr = (ioctl_addr[10:0] << 1);
+
+byte_to_hex_text byte_to_hex_text(
+   .data(ioctl_dout),
+   .text(byte_text)
+);
+
 // counter + addr control
 always@(posedge pclk) begin
    if(ioctl_wr) begin
@@ -60,12 +70,10 @@ always@(posedge pclk) begin
       bmp_index <= { screen_chars[11'b0][6:0], 3'b0 };
       cpu_wr <= 1'b0;
 
-      screen_chars[0] <= 8'd16;
-      screen_chars[1] <= 8'd17;
-      screen_chars[2] <= 8'd18;
-      screen_chars[3] <= 8'd19;
-      screen_chars[4] <= 8'd20;
-      screen_chars[5] <= 8'd21;
+      //if(text_addr < 11'd128) begin
+         screen_chars[text_addr] <= byte_text[15:8];
+         screen_chars[text_addr + 11'b1] <= byte_text[7:0];
+      //end
    end
    else if(char_cnt < SCREEN_CHAR_TOTAL) begin
       cpu_data <= font_bmp[bmp_index][3'd7 - char_h_bit_cnt[1+SCALE:SCALE-1]] ? WHITE : BLACK;
