@@ -102,7 +102,6 @@ always@(posedge pclk) begin
                cpu_addr <= cpu_addr - PIXEL_REVERSE_V_END;
             end else begin
                char_h_cnt <= 7'd0;
-               cpu_addr <= cpu_addr + 1;
             end
          end
       end
