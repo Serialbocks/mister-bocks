@@ -63,14 +63,15 @@ always@(posedge pclk) begin
       cpu_wr <= 1'b0;
    end
    else if(char_cnt < FONT_NUM_CHARS) begin
-      cpu_wr <= 1'b1;
       cpu_data <= font_bmp[bmp_index][3'd7 - char_h_bit_cnt[1+SCALE:SCALE-1]] ? WHITE : BLACK;
 
 	   if(char_h_bit_cnt < CHAR_WIDTH) begin
+         cpu_wr <= char_v_bit_cnt == CHAR_HEIGHT ? 1'b0 : 1'b1;
          char_h_bit_cnt <= char_h_bit_cnt + 7'b1;
          cpu_addr <= cpu_addr + 1;
       end
       else begin
+         cpu_wr <= 1'b0;
          char_h_bit_cnt <= 7'b0;
          if(char_v_bit_cnt < CHAR_HEIGHT) begin
             char_v_bit_cnt <= char_v_bit_cnt + 7'b1;
