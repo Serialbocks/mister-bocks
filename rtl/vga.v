@@ -5,11 +5,11 @@
 // http://www.tinyvga.com/vga-timing/640x480@60Hz
 
 module vga (
-   // pixel clock
-   input  pclk,
+   // clocks
+   input  clk_pixel,
+   input  clk_cpu,
 
    // cpu write
-   input cpu_clk,
    input cpu_wr,
    input [31:0] cpu_addr,
    input [7:0] cpu_data,
@@ -44,7 +44,7 @@ reg[9:0]  v_cnt;        // vertical pixel counter
 reg [7:0] vmem [PIXEL_COUNT-1:0];
 
 // cpu write to vmem
-always@(posedge cpu_clk) begin
+always@(posedge clk_cpu) begin
 	if(cpu_wr && (cpu_addr < PIXEL_COUNT)) begin
 		vmem[cpu_addr] <= cpu_data;
 	end
@@ -53,7 +53,7 @@ end
 // both counters count from the begin of the visibla area
 
 // horizontal pixel counter
-always@(posedge pclk) begin
+always@(posedge clk_pixel) begin
 	if(h_cnt==H+HFP+HS+HBP-1)   h_cnt <= 10'b0;
 	else                        h_cnt <= h_cnt + 10'b1;
 
@@ -64,7 +64,7 @@ always@(posedge pclk) begin
 	end
 
 // veritical pixel counter
-always@(posedge pclk) begin
+always@(posedge clk_pixel) begin
 	// the vertical counter is processed at the begin of each hsync
 	if(h_cnt == H+HFP) begin
 		if(v_cnt==VS+VBP+V+VFP-1)  v_cnt <= 10'b0; 
@@ -81,7 +81,7 @@ reg [31:0] video_counter;
 reg [7:0] pixel;
 reg de;
 
-always@(posedge pclk) begin
+always@(posedge clk_pixel) begin
 	// The video counter is being reset at the begin of each vsync.
 	// Otherwise it's increased every fourth pixel in the visible area.
 	// At the end of the first three of four lines the counter is

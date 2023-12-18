@@ -1,6 +1,8 @@
 module bocks_top (
    // pixel clock
-   input  pclk,
+   input  clk_pixel,
+   input  clk_ram,
+   input  clk_sys,
 
    // VGA output
    output 	hs,
@@ -12,9 +14,24 @@ module bocks_top (
    output VGA_VB,
    output VGA_DE,
 
+   // HPS File IO
    input  [7:0] ioctl_dout,
    input        ioctl_wr,
-   input [26:0] ioctl_addr
+   input [26:0] ioctl_addr,
+   input locked,
+
+   // sdram signals
+   input        SDRAM_CLK,
+	input [12:0] SDRAM_A,
+	input  [1:0] SDRAM_BA,
+	inout  [15:0] SDRAM_DQ,
+	input        SDRAM_DQML,
+	input        SDRAM_DQMH,
+	input        SDRAM_nCS,
+	input        SDRAM_nCAS,
+	input        SDRAM_nRAS,
+	input        SDRAM_nWE,
+   input        SDRAM_CKE
 );
 
 parameter SCALE = 2;
@@ -59,7 +76,7 @@ byte_to_hex_text byte_to_hex_text(
 );
 
 // counter + addr control
-always@(posedge pclk) begin
+always@(posedge clk_sys) begin
    if(ioctl_wr) begin
       font_bmp[ioctl_addr[9:0]] <= ioctl_dout;
       cpu_addr <= 32'h00000000;
@@ -119,9 +136,46 @@ always@(posedge pclk) begin
    end
 end
 
+//sdram sdram
+//(
+//	.*,
+//
+//	// system interface
+//	.clk        ( clk_ram           ),
+//	.init       ( !locked   ),
+//
+//	// cpu/chipset interface
+//	.ch0_addr   (  (downloading | loader_busy) ? loader_addr_mem       : {3'b0, ppu_addr}  ),
+//	.ch0_wr     (                                loader_write_mem      | ppu_write ),
+//	.ch0_din    (  (downloading | loader_busy) ? loader_write_data_mem : ppu_dout  ),
+//	.ch0_rd     ( ~(downloading | loader_busy)                         & ppu_read  ),
+//	.ch0_dout   ( ppu_din   ),
+//	.ch0_busy   ( ),
+//
+//	.ch1_addr   ( cpu_addr  ),
+//	.ch1_wr     ( cpu_write ),
+//	.ch1_din    ( cpu_dout  ),
+//	.ch1_rd     ( cpu_read  ),
+//	.ch1_dout   ( cpu_din   ),
+//	.ch1_busy   ( ),
+//
+//	// reserved for backup ram save/load
+//	.ch2_addr   ( ch2_addr ),
+//	.ch2_wr     ( ch2_wr ),
+//	.ch2_din    ( ch2_din ),
+//	.ch2_rd     ( ch2_rd ),
+//	.ch2_dout   ( save_dout ),
+//	.ch2_busy   ( save_busy ),
+//
+//	.refresh    (refresh  ),
+//	.ss_in      (sdram_ss_in),
+//	.ss_load    (savestate_load),
+//	.ss_out     (sdram_ss_out)
+//);
+
 vga vga (
-	.pclk  (pclk),
-	.cpu_clk(pclk),
+	.clk_pixel(clk_pixel),
+	.clk_cpu(clk_sys),
 	.cpu_wr(cpu_wr),
 	.cpu_addr(cpu_addr),
 	.cpu_data(cpu_data),

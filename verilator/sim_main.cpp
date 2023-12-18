@@ -74,8 +74,8 @@ double sc_time_stamp() {	// Called by $time in Verilog.
 	return main_time;
 }
 
-int clk_sys_freq = 25175644;
-SimClock clk_sys(1); // 25116279mhz
+SimClock clk_pixel(2);
+SimClock clk_ram(1);
 
 // VCD trace logging
 // -----------------
@@ -106,7 +106,8 @@ void restore_model(const char* filenamep) {
 void resetSim() {
 	main_time = 0;
 	top->reset = 1;
-	clk_sys.Reset();
+	clk_pixel.Reset();
+	clk_ram.Reset();
 }
 
 int verilate() {
@@ -119,21 +120,24 @@ int verilate() {
 		if (main_time == initialReset) { top->reset = 0; }
 
 		// Clock dividers
-		clk_sys.Tick();
+		clk_pixel.Tick();
+		clk_ram.Tick();
 
 		// Set clocks in core
-		top->clk_sys = clk_sys.clk;
+		top->clk_pixel = clk_pixel.clk;
+		top->clk_ram = clk_ram.clk;
+		top->clk_sdram = clk_ram.clk;
 
 		// Simulate both edges of fastest clock
-		if (clk_sys.clk != clk_sys.old) {
+		if (clk_ram.clk != clk_ram.old) {
 
 			// System clock simulates HPS functions
-			if (clk_sys.clk) {
+			if (clk_pixel.clk) {
 				input.BeforeEval();
+				bus.BeforeEval();
 			}
-			if (clk_sys.clk) { bus.BeforeEval(); }
 			top->eval();
-			if (clk_sys.clk) { bus.AfterEval(); }
+			if (clk_ram.clk) { bus.AfterEval(); }
 			if (Trace) {
 				if (!tfp->isOpen()) tfp->open(Trace_File);
 				tfp->dump(main_time); //Trace
@@ -141,12 +145,12 @@ int verilate() {
 		}
 
 		// Output pixels on rising edge of pixel clock
-		if (clk_sys.IsRising()) {
+		if (clk_pixel.IsRising()) {
 			uint32_t colour = 0xFF000000 | top->VGA_B << 16 | top->VGA_G << 8 | top->VGA_R;
 			video.Clock(top->VGA_HB, top->VGA_VB, top->VGA_HS, top->VGA_VS, colour);
 		}
 
-		if (clk_sys.IsRising()) {
+		if (clk_pixel.IsRising()) {
 			main_time++;
 		}
 		return 1;

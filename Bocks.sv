@@ -168,7 +168,7 @@ assign ADC_BUS  = 'Z;
 assign USER_OUT = '1;
 assign {UART_RTS, UART_TXD, UART_DTR} = 0;
 assign {SD_SCK, SD_MOSI, SD_CS} = 'Z;
-assign {SDRAM_DQ, SDRAM_A, SDRAM_BA, SDRAM_CLK, SDRAM_CKE, SDRAM_DQML, SDRAM_DQMH, SDRAM_nWE, SDRAM_nCAS, SDRAM_nRAS, SDRAM_nCS} = 'Z;
+//assign {SDRAM_DQ, SDRAM_A, SDRAM_BA, SDRAM_CLK, SDRAM_CKE, SDRAM_DQML, SDRAM_DQMH, SDRAM_nWE, SDRAM_nCAS, SDRAM_nRAS, SDRAM_nCS} = 'Z;
 assign {DDRAM_CLK, DDRAM_BURSTCNT, DDRAM_ADDR, DDRAM_DIN, DDRAM_BE, DDRAM_RD, DDRAM_WE} = '0;  
 
 assign VGA_SL = 0;
@@ -210,8 +210,6 @@ localparam CONF_STR = {
 	"-;",
 	"-;",
 	"V,v",`BUILD_DATE
-
-
 };
 
 
@@ -243,32 +241,50 @@ hps_io #(.STRLEN(($size(CONF_STR)>>3)) , .PS2DIV(1000), .WIDE(0)) hps_io
 ///////////////////
 //  PLL - clocks are the most important part of a system
 ///////////////////////////////////////////////////
-wire clk_sys, locked;
+wire clk_sys, clk_pixel, clk_ram, locked;
+
+assign clk_sys = clk_div[1];
+reg [1:0] clk_div;
+always @(posedge clk_ram)
+	clk_div <= clk_div + 2'd1;
 
 pll pll
 (
 	.refclk(CLK_50M),
 	.rst(0),
-	.outclk_0(clk_sys), // 25.116279 Mhz - for the vga pixel clock
+	.outclk_0(clk_ram), // 50.347222 Mhz - system clock
+	.outclk_1(clk_pixel),
 	.locked(locked)
 );
 
 ///////////////////////////////////////////////////
 
 
-assign CLK_VIDEO = clk_sys;
+assign CLK_VIDEO = clk_pixel;
 assign CE_PIXEL = 1;
 bocks_top bocks_top (
-	.pclk  (clk_sys),
-	.hs    (VGA_HS),
-	.vs    (VGA_VS),
-	.r     (VGA_R),
-	.g     (VGA_G),
-	.b     (VGA_B),
-	.VGA_DE(VGA_DE),
-	.ioctl_dout(ioctl_dout),
-	.ioctl_wr(ioctl_wr & ioctl_download),
-	.ioctl_addr ( ioctl_addr    )
+	.clk_pixel  	(clk_pixel),
+	.clk_ram		(clk_ram),
+	.clk_sys 		(clk_sys),
+	.hs    			(VGA_HS),
+	.vs    			(VGA_VS),
+	.r     			(VGA_R),
+	.g     			(VGA_G),
+	.b     			(VGA_B),
+	.VGA_DE			(VGA_DE),
+	.ioctl_dout		(ioctl_dout),
+	.ioctl_wr		(ioctl_wr & ioctl_download),
+	.ioctl_addr 	(ioctl_addr),
+	.locked			(locked),
+	.SDRAM_DQ       ( SDRAM_DQ                  ),
+    .SDRAM_A        ( SDRAM_A                   ),
+	.SDRAM_DQMH     ( SDRAM_DQMH 				),
+	.SDRAM_DQML     ( SDRAM_DQML 				),
+    .SDRAM_nCS      ( SDRAM_nCS                 ),
+    .SDRAM_BA       ( SDRAM_BA                  ),
+    .SDRAM_nWE      ( SDRAM_nWE                 ),
+    .SDRAM_nRAS     ( SDRAM_nRAS                ),
+    .SDRAM_nCAS     ( SDRAM_nCAS                )
 );
 			
 			
