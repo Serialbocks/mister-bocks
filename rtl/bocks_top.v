@@ -29,40 +29,45 @@ parameter FONT_BMP_SIZE = 768;
 
 parameter CHAR_WIDTH = (7'd8 << (SCALE - 1));
 parameter CHAR_HEIGHT = (7'd8 << (SCALE - 1));
-parameter SCREEN_CHAR_WIDTH = (PIXEL_WIDTH >> (3 + SCALE - 1));
-parameter SCREEN_CHAR_HEIGHT = (PIXEL_HEIGHT >> (3 + SCALE - 1));
+parameter SCREEN_CHAR_WIDTH = (PIXEL_WIDTH >> (3 + SCALE - 1)); // 40 for scale 2
+parameter SCREEN_CHAR_HEIGHT = (PIXEL_HEIGHT >> (3 + SCALE - 1)); // 30 for scale 2
+parameter SCREEN_CHAR_TOTAL = 11'd1200; // For scale 2
 parameter WHITE = 8'hff;
 parameter BLACK = 8'h00;
 
-reg [7:0] font_bmp [FONT_BMP_SIZE-1:0];
+reg [7:0] screen_chars [SCREEN_CHAR_TOTAL-1:0];
 
-//initial begin
-//   $readmemh("font.mif", font_bmp, 0, FONT_BMP_SIZE-1);
-//end
+reg [7:0] font_bmp [FONT_BMP_SIZE-1:0];
 
 reg cpu_wr = 1'b0;
 reg [7:0] cpu_data = 8'b00000000;
 reg [31:0] cpu_addr = 32'h00000000;
-reg [6:0] char_cnt = 7'd0;
+reg [10:0] char_cnt = 11'd0;
 reg [6:0] char_h_bit_cnt = 7'd0;
 reg [6:0] char_v_bit_cnt = 7'd0;
 reg [6:0] char_h_cnt = 7'd0;
-reg [9:0] bmp_index = 10'd0;
-
+reg [9:0] bmp_index;
 
 // counter + addr control
 always@(posedge pclk) begin
    if(ioctl_wr) begin
       font_bmp[ioctl_addr[9:0]] <= ioctl_dout;
       cpu_addr <= 32'h00000000;
-      char_cnt <= 7'b0;
+      char_cnt <= 11'b0;
       char_h_bit_cnt <= 7'd0;
       char_v_bit_cnt <= 7'd0;
       char_h_cnt <= 7'd0;
-      bmp_index <= 10'd0;
+      bmp_index <= { screen_chars[11'b0][6:0], 3'b0 };
       cpu_wr <= 1'b0;
+
+      screen_chars[0] <= 8'd16;
+      screen_chars[1] <= 8'd17;
+      screen_chars[2] <= 8'd18;
+      screen_chars[3] <= 8'd19;
+      screen_chars[4] <= 8'd20;
+      screen_chars[5] <= 8'd21;
    end
-   else if(char_cnt < FONT_NUM_CHARS) begin
+   else if(char_cnt < SCREEN_CHAR_TOTAL) begin
       cpu_data <= font_bmp[bmp_index][3'd7 - char_h_bit_cnt[1+SCALE:SCALE-1]] ? WHITE : BLACK;
 
 	   if(char_h_bit_cnt < CHAR_WIDTH) begin
@@ -82,8 +87,8 @@ always@(posedge pclk) begin
          else begin
             // next character
             char_v_bit_cnt <= 7'b0;
-            char_cnt <= char_cnt + 7'b1;
-            bmp_index <= { char_cnt + 7'b1, 3'b0 };
+            char_cnt <= char_cnt + 11'b1;
+            bmp_index <= { screen_chars[char_cnt + 11'b1][6:0], 3'b0 };
             if(char_h_cnt < SCREEN_CHAR_WIDTH[6:0] - 1'b1) begin
                char_h_cnt <= char_h_cnt + 1'b1;
                cpu_addr <= cpu_addr - PIXEL_REVERSE_V_END;
@@ -97,11 +102,11 @@ always@(posedge pclk) begin
    end 
    else begin
       cpu_addr <= 32'h00000000;
-      //char_cnt <= 7'b0;
       char_h_bit_cnt <= 7'd0;
       char_v_bit_cnt <= 7'd0;
       char_h_cnt <= 7'd0;
-      bmp_index <= 10'd0;
+      bmp_index <= { screen_chars[11'b0][6:0], 3'b0 };
+      char_cnt <= 11'b0;
       cpu_wr <= 1'b0;
    end
 end
