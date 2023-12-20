@@ -21,17 +21,17 @@ module bocks_top (
    input locked,
 
    // sdram signals
-   input        SDRAM_CLK,
-	input [12:0] SDRAM_A,
-	input  [1:0] SDRAM_BA,
+   output        SDRAM_CLK,
+	output [12:0] SDRAM_A,
+	output  [1:0] SDRAM_BA,
 	inout  [15:0] SDRAM_DQ,
-	input        SDRAM_DQML,
-	input        SDRAM_DQMH,
-	input        SDRAM_nCS,
-	input        SDRAM_nCAS,
-	input        SDRAM_nRAS,
-	input        SDRAM_nWE,
-   input        SDRAM_CKE
+	output        SDRAM_DQML,
+	output        SDRAM_DQMH,
+	output        SDRAM_nCS,
+	output        SDRAM_nCAS,
+	output        SDRAM_nRAS,
+	output        SDRAM_nWE,
+   output        SDRAM_CKE
 );
 
 parameter SCALE = 2;
@@ -65,16 +65,6 @@ reg [6:0] char_v_bit_cnt = 7'd0;
 reg [6:0] char_h_cnt = 7'd0;
 reg [9:0] bmp_index;
 
-// test text output
-wire [15:0] byte_text;
-wire [10:0] text_addr;
-assign text_addr = (ioctl_addr[10:0] << 1);
-
-byte_to_hex_text byte_to_hex_text(
-   .data(ioctl_dout),
-   .text(byte_text)
-);
-
 // counter + addr control
 always@(posedge clk_sys) begin
    if(ioctl_wr) begin
@@ -86,11 +76,7 @@ always@(posedge clk_sys) begin
       char_h_cnt <= 7'd0;
       bmp_index <= { screen_chars[11'b0][6:0], 3'b0 };
       cpu_wr <= 1'b0;
-
-      //if(text_addr < 11'd128) begin
-         screen_chars[text_addr] <= byte_text[15:8];
-         screen_chars[text_addr + 11'b1] <= byte_text[7:0];
-      //end
+      sdram_init <= 1'b0;
    end
    else if(char_cnt < SCREEN_CHAR_TOTAL) begin
       cpu_data <= font_bmp[bmp_index][3'd7 - char_h_bit_cnt[1+SCALE:SCALE-1]] ? WHITE : BLACK;
@@ -136,42 +122,144 @@ always@(posedge clk_sys) begin
    end
 end
 
-//sdram sdram
-//(
-//	.*,
-//
-//	// system interface
-//	.clk        ( clk_ram           ),
-//	.init       ( !locked   ),
-//
-//	// cpu/chipset interface
-//	.ch0_addr   (  (downloading | loader_busy) ? loader_addr_mem       : {3'b0, ppu_addr}  ),
-//	.ch0_wr     (                                loader_write_mem      | ppu_write ),
-//	.ch0_din    (  (downloading | loader_busy) ? loader_write_data_mem : ppu_dout  ),
-//	.ch0_rd     ( ~(downloading | loader_busy)                         & ppu_read  ),
-//	.ch0_dout   ( ppu_din   ),
-//	.ch0_busy   ( ),
-//
-//	.ch1_addr   ( cpu_addr  ),
-//	.ch1_wr     ( cpu_write ),
-//	.ch1_din    ( cpu_dout  ),
-//	.ch1_rd     ( cpu_read  ),
-//	.ch1_dout   ( cpu_din   ),
-//	.ch1_busy   ( ),
-//
-//	// reserved for backup ram save/load
-//	.ch2_addr   ( ch2_addr ),
-//	.ch2_wr     ( ch2_wr ),
-//	.ch2_din    ( ch2_din ),
-//	.ch2_rd     ( ch2_rd ),
-//	.ch2_dout   ( save_dout ),
-//	.ch2_busy   ( save_busy ),
-//
-//	.refresh    (refresh  ),
-//	.ss_in      (sdram_ss_in),
-//	.ss_load    (savestate_load),
-//	.ss_out     (sdram_ss_out)
-//);
+reg [23:0] clk_div;
+wire clk_slow = clk_div[23];
+reg prev_clk_slow = 1'b0;
+always @(posedge clk_sys)
+	clk_div <= clk_div + 24'd1;
+
+reg sdram_init = 1'b1;
+reg[24:0]  ch0_addr = 25'd0;
+reg        ch0_rd = 1'd0;
+reg        ch0_wr = 1'd0;
+reg [7:0]  ch0_din = 8'd0;
+wire [7:0] ch0_dout;
+wire       ch0_busy;
+reg[2:0] wr_state = STATE_IDLE;
+reg[2:0] rd_state = STATE_IDLE;
+reg ch0_wr_done = 1'b0;
+
+// test text output
+wire [15:0] byte_text;
+wire [15:0] addr_text;
+
+byte_to_hex_text byte_to_hex_text(
+   .data(ch0_dout),
+   .text(byte_text)
+);
+
+byte_to_hex_text byte_to_hex_text2(
+   .data(ch0_addr[7:0]),
+   .text(addr_text)
+);
+
+localparam STATE_IDLE  = 3'b000;
+localparam STATE_WRITE = 3'b001;
+localparam STATE_WAIT  = 3'b010;
+localparam STATE_READ  = 3'b011;
+localparam STATE_WAIT_LONGER = 3'b100;
+localparam ADDR_TEST_COUNT = 25'd100;
+
+// Test writing to sdram
+always@(posedge clk_sys) begin
+    if(ioctl_wr || sdram_init) begin 
+      
+    end
+    else if(!ch0_wr_done && ch0_addr < ADDR_TEST_COUNT) begin
+      if(wr_state == STATE_IDLE) begin
+         wr_state <= STATE_WRITE;
+         ch0_wr <= 1'b1;
+      end
+      else if(wr_state == STATE_WRITE) begin
+         ch0_wr <= 1'b0;
+         wr_state <= STATE_WAIT;
+      end
+      else if(wr_state == STATE_WAIT) begin
+         wr_state <= STATE_WAIT_LONGER;
+      end
+      else if(wr_state == STATE_WAIT_LONGER) begin
+         ch0_addr <= ch0_addr + 25'd1;
+         ch0_din <= ch0_din + 8'd1;
+         wr_state <= STATE_IDLE;
+      end
+   end
+   else if(!ch0_wr_done) begin
+      ch0_wr_done <= 1'b1;
+      ch0_addr <= 25'd0;
+      ch0_din <= 8'd0;
+   end
+   else if(ch0_wr_done && ch0_addr < ADDR_TEST_COUNT) begin
+      if(rd_state == STATE_IDLE) begin
+         if(prev_clk_slow != clk_slow) begin
+            rd_state <= STATE_READ;
+            ch0_rd <= 1'b1;
+         end
+         prev_clk_slow <= clk_slow;
+      end
+      else if(rd_state == STATE_READ) begin
+         rd_state <= STATE_WAIT;
+         ch0_rd <= 1'b0;
+      end
+      else if(rd_state == STATE_WAIT) begin
+         rd_state <= STATE_WAIT_LONGER;
+      end
+      else if(rd_state == STATE_WAIT_LONGER) begin
+         screen_chars[11'd0] <= addr_text[15:8];
+         screen_chars[11'd1] <= addr_text[7:0];
+         screen_chars[11'd3] <= byte_text[15:8];
+         screen_chars[11'd4] <= byte_text[7:0];
+         ch0_addr <= ch0_addr + 25'd1;
+         rd_state <= STATE_IDLE;
+      end
+   end
+   else if(ch0_wr_done) begin
+      ch0_addr <= 25'd0;
+   end
+end
+
+sdram sdram
+(
+   .SDRAM_CLK	    ( SDRAM_CLK     ),
+	.SDRAM_DQ       ( SDRAM_DQ      ),
+   .SDRAM_A        ( SDRAM_A       ),
+	.SDRAM_DQMH     ( SDRAM_DQMH 	  ),
+	.SDRAM_DQML     ( SDRAM_DQML 	  ),
+   .SDRAM_nCS      ( SDRAM_nCS     ),
+   .SDRAM_BA       ( SDRAM_BA      ),
+   .SDRAM_nWE      ( SDRAM_nWE     ),
+   .SDRAM_nRAS     ( SDRAM_nRAS    ),
+   .SDRAM_nCAS     ( SDRAM_nCAS    ),
+   .SDRAM_CKE      ( SDRAM_CKE     ),
+
+	// system interface
+	.clk        (clk_ram),
+	.init       (sdram_init),
+
+	// cpu/chipset interface
+	.ch0_addr   (ch0_addr),
+	.ch0_wr     (ch0_wr),
+	.ch0_din    (ch0_din),
+	.ch0_rd     (ch0_rd),
+	.ch0_dout   (ch0_dout),
+	.ch0_busy   (ch0_busy),
+
+	.ch1_addr   ( ),
+	.ch1_wr     ( 1'b0 ),
+	.ch1_din    ( ),
+	.ch1_rd     ( 1'b0 ),
+	.ch1_dout   ( ),
+	.ch1_busy   ( ),
+
+	// reserved for backup ram save/load
+	.ch2_addr   ( ),
+	.ch2_wr     ( 1'b0 ),
+	.ch2_din    ( ),
+	.ch2_rd     ( 1'b0 ),
+	.ch2_dout   ( ),
+	.ch2_busy   ( ),
+
+	.refresh    ( 1'b0 )
+);
 
 vga vga (
 	.clk_pixel(clk_pixel),

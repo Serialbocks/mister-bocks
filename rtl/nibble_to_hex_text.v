@@ -1,5 +1,4 @@
 module nibble_to_hex_text (
-   // pixel clock
    input  [3:0] data,
    output reg [7:0] text
 );

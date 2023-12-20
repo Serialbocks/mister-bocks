@@ -74,7 +74,7 @@ double sc_time_stamp() {	// Called by $time in Verilog.
 	return main_time;
 }
 
-SimClock clk_pixel(2);
+SimClock clk_pixel(4);
 SimClock clk_ram(1);
 
 // VCD trace logging

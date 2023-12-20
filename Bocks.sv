@@ -223,7 +223,7 @@ wire        ioctl_wr;
 wire [26:0] ioctl_addr;
 wire  [7:0] ioctl_index;
 
-hps_io #(.STRLEN(($size(CONF_STR)>>3)) , .PS2DIV(1000), .WIDE(0)) hps_io
+hps_io #(.STRLEN(($size(CONF_STR)>>3)), .PS2DIV(1000), .WIDE(0)) hps_io
 (
 	.clk_sys(clk_sys),
 	.HPS_BUS(HPS_BUS),
@@ -243,16 +243,13 @@ hps_io #(.STRLEN(($size(CONF_STR)>>3)) , .PS2DIV(1000), .WIDE(0)) hps_io
 ///////////////////////////////////////////////////
 wire clk_sys, clk_pixel, clk_ram, locked;
 
-assign clk_sys = clk_div[1];
-reg [1:0] clk_div;
-always @(posedge clk_ram)
-	clk_div <= clk_div + 2'd1;
+assign clk_sys = clk_pixel;
 
 pll pll
 (
 	.refclk(CLK_50M),
 	.rst(0),
-	.outclk_0(clk_ram), // 50.347222 Mhz - system clock
+	.outclk_0(clk_ram), // 100.694 Mhz - ram
 	.outclk_1(clk_pixel),
 	.locked(locked)
 );
@@ -276,6 +273,7 @@ bocks_top bocks_top (
 	.ioctl_wr		(ioctl_wr & ioctl_download),
 	.ioctl_addr 	(ioctl_addr),
 	.locked			(locked),
+	.SDRAM_CLK	    ( SDRAM_CLK 			    ),
 	.SDRAM_DQ       ( SDRAM_DQ                  ),
     .SDRAM_A        ( SDRAM_A                   ),
 	.SDRAM_DQMH     ( SDRAM_DQMH 				),
@@ -284,7 +282,8 @@ bocks_top bocks_top (
     .SDRAM_BA       ( SDRAM_BA                  ),
     .SDRAM_nWE      ( SDRAM_nWE                 ),
     .SDRAM_nRAS     ( SDRAM_nRAS                ),
-    .SDRAM_nCAS     ( SDRAM_nCAS                )
+    .SDRAM_nCAS     ( SDRAM_nCAS                ),
+	.SDRAM_CKE      ( SDRAM_CKE                 )
 );
 			
 			

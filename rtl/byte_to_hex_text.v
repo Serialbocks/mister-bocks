@@ -1,5 +1,4 @@
 module byte_to_hex_text (
-   // pixel clock
    input  [7:0] data,
    output [15:0] text
 );

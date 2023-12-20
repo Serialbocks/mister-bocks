@@ -63,11 +63,7 @@ module sdram
 	input             refresh
 );
 
-assign SDRAM_nCS = 0;
-assign SDRAM_CKE = 1;
-assign {SDRAM_DQMH,SDRAM_DQML} = SDRAM_A[12:11];
-
-localparam RASCAS_DELAY   = 3'd1; // tRCD=20ns -> 2 cycles@100MHz
+localparam RASCAS_DELAY   = 3'd1; // tRCD=20ns -> 2 cycles@50MHz
 localparam BURST_LENGTH   = 3'd0; // 0=1, 1=2, 2=4, 3=8, 7=full page
 localparam ACCESS_TYPE    = 1'd0; // 0=sequential, 1=interleaved
 localparam CAS_LATENCY    = 3'd2; // 2/3 allowed
@@ -156,7 +152,7 @@ always @(posedge clk) begin
 		ch2_busy <= 0;
 	end
 
-	if(mode != MODE_NORMAL || state != STATE_IDLE || reset) begin
+	if(mode != MODE_NORMAL || state != STATE_IDLE || reset != 5'b0) begin
 		state <= state + 1'd1;
 		if(state == STATE_LAST) state <= STATE_IDLE;
 	end
@@ -171,7 +167,7 @@ localparam MODE_PRE    = 2'b11;
 reg [1:0] mode;
 reg [4:0] reset=5'h1f;
 always @(posedge clk) begin
-	reg init_old=0;
+	reg init_old;
 	init_old <= init;
 
 	if(init_old & ~init) reset <= 5'h1f;
@@ -196,6 +192,8 @@ localparam CMD_AUTO_REFRESH    = 3'b001;
 localparam CMD_LOAD_MODE       = 3'b000;
 
 wire [1:0] dqm = {we & ~a[0], we & a[0]};
+localparam SIM_RAM_SIZE = 16777216;
+reg [15:0] sim_ram [SIM_RAM_SIZE-1:0];
 
 // SDRAM state machines
 always @(posedge clk) begin
@@ -204,10 +202,14 @@ always @(posedge clk) begin
 
 	if(state == STATE_START) SDRAM_BA <= (mode == MODE_NORMAL) ? bank : 2'b00;
 
-	SDRAM_DQ <= 'Z;
+	//SDRAM_DQ <= 'Z;
+	/* verilator lint_off CASEX */
 	casex({ram_req,we,mode,state})
 		{2'b1X, MODE_NORMAL, STATE_START}: {SDRAM_nRAS, SDRAM_nCAS, SDRAM_nWE} <= CMD_ACTIVE;
-		{2'b11, MODE_NORMAL, STATE_CONT }: {SDRAM_nRAS, SDRAM_nCAS, SDRAM_nWE, SDRAM_DQ} <= {CMD_WRITE, data};
+		{2'b11, MODE_NORMAL, STATE_CONT }: begin
+			 //{SDRAM_nRAS, SDRAM_nCAS, SDRAM_nWE, SDRAM_DQ} <= {CMD_WRITE, data};
+			 sim_ram[{bank, a[21:0]}] <= data;
+		end
 		{2'b10, MODE_NORMAL, STATE_CONT }: {SDRAM_nRAS, SDRAM_nCAS, SDRAM_nWE} <= CMD_READ;
 		{2'b0X, MODE_NORMAL, STATE_START}: {SDRAM_nRAS, SDRAM_nCAS, SDRAM_nWE} <= CMD_AUTO_REFRESH;
 
@@ -229,7 +231,8 @@ always @(posedge clk) begin
 		                          default: SDRAM_A <= 13'b0000000000000;
 	endcase
 
-	data_reg <= SDRAM_DQ;
+	//data_reg <= SDRAM_DQ;
+	data_reg <= sim_ram[{bank, a[21:0]}];
 
 	if(state == STATE_READY) begin
 		if(ch0_busy) begin
@@ -265,31 +268,5 @@ always @(posedge clk) begin
 	end
 	
 end
-
-
-altddio_out
-#(
-	.extend_oe_disable("OFF"),
-	.intended_device_family("Cyclone V"),
-	.invert_output("OFF"),
-	.lpm_hint("UNUSED"),
-	.lpm_type("altddio_out"),
-	.oe_reg("UNREGISTERED"),
-	.power_up_high("OFF"),
-	.width(1)
-)
-sdramclk_ddr
-(
-	.datain_h(1'b0),
-	.datain_l(1'b1),
-	.outclock(clk),
-	.dataout(SDRAM_CLK),
-	.aclr(1'b0),
-	.aset(1'b0),
-	.oe(1'b1),
-	.outclocken(1'b1),
-	.sclr(1'b0),
-	.sset(1'b0)
-);
 
 endmodule
