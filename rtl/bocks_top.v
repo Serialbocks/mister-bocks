@@ -128,14 +128,14 @@ reg prev_clk_slow = 1'b0;
 always @(posedge clk_sys)
 	clk_div <= clk_div + 24'd1;
 
-reg sdram_init = 1'b1;
+reg sdram_init = 1'b0;
 reg[24:0]  ch0_addr = 25'd0;
 reg        ch0_rd = 1'd0;
 reg        ch0_wr = 1'd0;
 reg [7:0]  ch0_din = 8'd0;
 wire [7:0] ch0_dout;
 wire       ch0_busy;
-reg[2:0] wr_state = STATE_IDLE;
+reg[2:0] wr_state = STATE_INITIALIZING;
 reg[2:0] rd_state = STATE_IDLE;
 reg ch0_wr_done = 1'b0;
 
@@ -158,7 +158,8 @@ localparam STATE_WRITE = 3'b001;
 localparam STATE_WAIT  = 3'b010;
 localparam STATE_READ  = 3'b011;
 localparam STATE_WAIT_LONGER = 3'b100;
-localparam ADDR_TEST_COUNT = 25'd100;
+localparam STATE_INITIALIZING = 3'b101;
+localparam ADDR_TEST_COUNT = 25'd32;
 
 // Test writing to sdram
 always@(posedge clk_sys) begin
@@ -166,9 +167,13 @@ always@(posedge clk_sys) begin
       
     end
     else if(!ch0_wr_done && ch0_addr < ADDR_TEST_COUNT) begin
-      if(wr_state == STATE_IDLE) begin
+      if(wr_state == STATE_INITIALIZING) begin
+         wr_state <= clk_slow ? STATE_IDLE : STATE_INITIALIZING;
+      end
+      else if(wr_state == STATE_IDLE) begin
          wr_state <= STATE_WRITE;
          ch0_wr <= 1'b1;
+         ch0_din <= ch0_addr[7:0];
       end
       else if(wr_state == STATE_WRITE) begin
          ch0_wr <= 1'b0;
@@ -179,7 +184,7 @@ always@(posedge clk_sys) begin
       end
       else if(wr_state == STATE_WAIT_LONGER) begin
          ch0_addr <= ch0_addr + 25'd1;
-         ch0_din <= ch0_din + 8'd1;
+         
          wr_state <= STATE_IDLE;
       end
    end
@@ -214,6 +219,7 @@ always@(posedge clk_sys) begin
    end
    else if(ch0_wr_done) begin
       ch0_addr <= 25'd0;
+      ch0_wr_done <= 1'b0;
    end
 end
 
