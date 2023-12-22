@@ -124,12 +124,12 @@ always@(posedge clk_sys) begin
 end
 
 reg [23:0] clk_div, clk_div2;
-wire clk_slow = clk_div[15];
+wire clk_slow = clk_div[10];
 reg prev_clk_slow = 1'b0;
 always @(posedge clk_sys)
 	clk_div <= clk_div + 24'd1;
 
-always @(posedge clk_slow) begin
+always @(posedge clk_div[23]) begin
    if(char_color == RED) begin
       clk_div2 <= clk_div2 + 24'd1;
    end
@@ -208,7 +208,7 @@ always@(posedge clk_sys) begin
    end
    else if(ch0_wr_done && (ch0_addr - ADDR_START) < ADDR_TEST_COUNT) begin
       if(rd_state == STATE_IDLE) begin
-         if(prev_clk_slow != clk_slow && (char_color == WHITE || clk_div2[8])) begin
+         if(prev_clk_slow != clk_slow && (char_color == WHITE || clk_div2[13])) begin
             char_color <= WHITE;
             rd_state <= STATE_READ;
             ch0_rd <= 1'b1;
