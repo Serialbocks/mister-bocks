@@ -2,6 +2,8 @@ set_global_assignment -name SYSTEMVERILOG_FILE Bocks.sv
 set_global_assignment -name QIP_FILE sys/sys.qip
 set_global_assignment -name VERILOG_FILE rtl/byte_to_hex_text.v
 set_global_assignment -name VERILOG_FILE rtl/nibble_to_hex_text.v
+set_global_assignment -name VERILOG_FILE rtl/double_to_hex_text.v
+set_global_assignment -name VERILOG_FILE rtl/quad_to_hex_text.v
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/sdram.sv
 set_global_assignment -name VERILOG_FILE rtl/vga.v
 set_global_assignment -name VERILOG_FILE rtl/bocks_top.v

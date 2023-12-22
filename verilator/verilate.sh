@@ -9,4 +9,6 @@ verilator \
 ../rtl/vga.v \
 ../rtl/nibble_to_hex_text.v \
 ../rtl/byte_to_hex_text.v \
+../rtl/double_to_hex_text.v \
+../rtl/quad_to_hex_text.v \
 ../rtl/bocks_top.v
