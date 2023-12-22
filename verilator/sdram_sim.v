@@ -63,7 +63,7 @@ module sdram
 	input             refresh
 );
 
-localparam RASCAS_DELAY   = 3'd1; // tRCD=20ns -> 2 cycles@50MHz
+localparam RASCAS_DELAY   = 3'd2; // tRCD=20ns -> 2 cycles@50MHz
 localparam BURST_LENGTH   = 3'd0; // 0=1, 1=2, 2=4, 3=8, 7=full page
 localparam ACCESS_TYPE    = 1'd0; // 0=sequential, 1=interleaved
 localparam CAS_LATENCY    = 3'd2; // 2/3 allowed

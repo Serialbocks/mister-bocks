@@ -51,6 +51,7 @@ parameter SCREEN_CHAR_HEIGHT = (PIXEL_HEIGHT >> (3 + SCALE - 1)); // 30 for scal
 parameter SCREEN_CHAR_TOTAL = 11'd1200; // For scale 2
 parameter WHITE = 8'hff;
 parameter BLACK = 8'h00;
+parameter RED = 8'he0;
 
 reg [7:0] screen_chars [SCREEN_CHAR_TOTAL-1:0];
 
@@ -64,6 +65,7 @@ reg [6:0] char_h_bit_cnt = 7'd0;
 reg [6:0] char_v_bit_cnt = 7'd0;
 reg [6:0] char_h_cnt = 7'd0;
 reg [9:0] bmp_index;
+reg [7:0] char_color = WHITE;
 
 // counter + addr control
 always@(posedge clk_sys) begin
@@ -76,10 +78,9 @@ always@(posedge clk_sys) begin
       char_h_cnt <= 7'd0;
       bmp_index <= { screen_chars[11'b0][6:0], 3'b0 };
       cpu_wr <= 1'b0;
-      sdram_init <= 1'b0;
    end
    else if(char_cnt < SCREEN_CHAR_TOTAL) begin
-      cpu_data <= font_bmp[bmp_index][3'd7 - char_h_bit_cnt[1+SCALE:SCALE-1]] ? WHITE : BLACK;
+      cpu_data <= font_bmp[bmp_index][3'd7 - char_h_bit_cnt[1+SCALE:SCALE-1]] ? char_color : BLACK;
 
 	   if(char_h_bit_cnt < CHAR_WIDTH) begin
          cpu_wr <= char_v_bit_cnt == CHAR_HEIGHT ? 1'b0 : 1'b1;
@@ -122,15 +123,26 @@ always@(posedge clk_sys) begin
    end
 end
 
-reg [23:0] clk_div;
-wire clk_slow = clk_div[23];
+reg [23:0] clk_div, clk_div2;
+wire clk_slow = clk_div[19];
 reg prev_clk_slow = 1'b0;
 always @(posedge clk_sys)
 	clk_div <= clk_div + 24'd1;
 
-reg sdram_init = 1'b0;
-reg[24:0]  ch0_addr = 25'd0;
-reg        ch0_rd = 1'd0;
+always @(posedge clk_slow) begin
+   if(char_color == RED) begin
+      clk_div2 <= clk_div2 + 24'd1;
+
+   end
+   else begin
+      clk_div2 <= 24'd0;
+   end
+end
+	
+
+reg refresh = 1'b1;
+reg[24:0]  ch0_addr = ADDR_START;
+reg        ch0_rd = 1'd1;
 reg        ch0_wr = 1'd0;
 reg [7:0]  ch0_din = 8'd0;
 wire [7:0] ch0_dout;
@@ -141,16 +153,24 @@ reg ch0_wr_done = 1'b0;
 
 // test text output
 wire [15:0] byte_text;
-wire [15:0] addr_text;
+wire [15:0] addr_text1, addr_text2;
 
 byte_to_hex_text byte_to_hex_text(
+   .clk(clk_sys),
    .data(ch0_dout),
    .text(byte_text)
 );
 
 byte_to_hex_text byte_to_hex_text2(
+   .clk(clk_sys),
+   .data(ch0_addr[15:8]),
+   .text(addr_text1)
+);
+
+byte_to_hex_text byte_to_hex_text3(
+   .clk(clk_sys),
    .data(ch0_addr[7:0]),
-   .text(addr_text)
+   .text(addr_text2)
 );
 
 localparam STATE_IDLE  = 3'b000;
@@ -159,66 +179,79 @@ localparam STATE_WAIT  = 3'b010;
 localparam STATE_READ  = 3'b011;
 localparam STATE_WAIT_LONGER = 3'b100;
 localparam STATE_INITIALIZING = 3'b101;
-localparam ADDR_TEST_COUNT = 25'd32;
+localparam ADDR_TEST_COUNT = 25'd255;
+localparam ADDR_START = 25'h0000000;
 
 // Test writing to sdram
 always@(posedge clk_sys) begin
-    if(ioctl_wr || sdram_init) begin 
-      
+    if(ioctl_wr || refresh) begin 
+      refresh <= 1'b0;
     end
-    else if(!ch0_wr_done && ch0_addr < ADDR_TEST_COUNT) begin
+    else 
+    if(!ch0_wr_done && (ch0_addr - ADDR_START) <= ADDR_TEST_COUNT) begin
       if(wr_state == STATE_INITIALIZING) begin
          wr_state <= clk_slow ? STATE_IDLE : STATE_INITIALIZING;
       end
       else if(wr_state == STATE_IDLE) begin
          wr_state <= STATE_WRITE;
-         ch0_wr <= 1'b1;
          ch0_din <= ch0_addr[7:0];
       end
       else if(wr_state == STATE_WRITE) begin
-         ch0_wr <= 1'b0;
+         ch0_wr <= 1'b1;
          wr_state <= STATE_WAIT;
       end
       else if(wr_state == STATE_WAIT) begin
-         wr_state <= STATE_WAIT_LONGER;
+         wr_state <= ch0_busy ? STATE_WAIT : STATE_WAIT_LONGER;
       end
       else if(wr_state == STATE_WAIT_LONGER) begin
+         ch0_wr <= 1'b0;
          ch0_addr <= ch0_addr + 25'd1;
-         
          wr_state <= STATE_IDLE;
       end
    end
    else if(!ch0_wr_done) begin
       ch0_wr_done <= 1'b1;
-      ch0_addr <= 25'd0;
+      ch0_addr <= ADDR_START;
       ch0_din <= 8'd0;
    end
-   else if(ch0_wr_done && ch0_addr < ADDR_TEST_COUNT) begin
+   else if(ch0_wr_done && (ch0_addr - ADDR_START) <= ADDR_TEST_COUNT) begin
       if(rd_state == STATE_IDLE) begin
-         if(prev_clk_slow != clk_slow) begin
+         if(prev_clk_slow != clk_slow && (char_color == WHITE || clk_div2[3])) begin
+            char_color <= WHITE;
             rd_state <= STATE_READ;
             ch0_rd <= 1'b1;
+         end
+         else begin
+            refresh <= 1'b1;
          end
          prev_clk_slow <= clk_slow;
       end
       else if(rd_state == STATE_READ) begin
          rd_state <= STATE_WAIT;
-         ch0_rd <= 1'b0;
       end
       else if(rd_state == STATE_WAIT) begin
-         rd_state <= STATE_WAIT_LONGER;
+         rd_state <= ch0_busy ? STATE_WAIT : STATE_WAIT_LONGER;
       end
       else if(rd_state == STATE_WAIT_LONGER) begin
-         screen_chars[11'd0] <= addr_text[15:8];
-         screen_chars[11'd1] <= addr_text[7:0];
-         screen_chars[11'd3] <= byte_text[15:8];
-         screen_chars[11'd4] <= byte_text[7:0];
+         if(ch0_dout != ch0_addr[7:0]) begin
+            char_color <= RED;
+         end
+         else begin
+            char_color <= WHITE;
+         end
+         screen_chars[11'd0] <= addr_text1[15:8];
+         screen_chars[11'd1] <= addr_text1[7:0];
+         screen_chars[11'd2] <= addr_text2[15:8];
+         screen_chars[11'd3] <= addr_text2[7:0];
+         screen_chars[11'd5] <= byte_text[15:8];
+         screen_chars[11'd6] <= byte_text[7:0];
+         ch0_rd <= 1'b0;
          ch0_addr <= ch0_addr + 25'd1;
          rd_state <= STATE_IDLE;
       end
    end
    else if(ch0_wr_done) begin
-      ch0_addr <= 25'd0;
+      ch0_addr <= ADDR_START;
       ch0_wr_done <= 1'b0;
    end
 end
@@ -239,7 +272,7 @@ sdram sdram
 
 	// system interface
 	.clk        (clk_ram),
-	.init       (sdram_init),
+	.init       (1'b0),
 
 	// cpu/chipset interface
 	.ch0_addr   (ch0_addr),
@@ -264,7 +297,7 @@ sdram sdram
 	.ch2_dout   ( ),
 	.ch2_busy   ( ),
 
-	.refresh    ( 1'b0 )
+	.refresh    (refresh)
 );
 
 vga vga (

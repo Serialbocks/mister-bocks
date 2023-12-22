@@ -243,7 +243,7 @@ hps_io #(.STRLEN(($size(CONF_STR)>>3)), .PS2DIV(1000), .WIDE(0)) hps_io
 ///////////////////////////////////////////////////
 wire clk_sys, clk_pixel, clk_ram, locked;
 
-assign clk_sys = clk_pixel;
+//assign clk_sys = clk_pixel;
 
 pll pll
 (
@@ -251,6 +251,7 @@ pll pll
 	.rst(0),
 	.outclk_0(clk_ram), // 100.694 Mhz - ram
 	.outclk_1(clk_pixel),
+	.outclk_2(clk_sys),
 	.locked(locked)
 );
 
