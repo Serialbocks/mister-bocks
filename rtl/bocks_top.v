@@ -32,11 +32,7 @@ module bocks_top (
 	output        SDRAM_nCAS,
 	output        SDRAM_nRAS,
 	output        SDRAM_nWE,
-   output        SDRAM_CKE,
-
-   // test values
-   output [2:0] test_ioctl_state,
-   output [2:0] test_cpu_state
+   output        SDRAM_CKE
 );
 
 parameter SCALE = 2;
@@ -57,15 +53,12 @@ parameter WHITE = 8'hff;
 parameter BLACK = 8'h00;
 parameter RED = 8'he0;
 
-reg [7:0] screen_chars [SCREEN_CHAR_TOTAL-1:0];
-
 localparam FONT_ADDR_START = 25'h0000000;
 localparam IOCTL_STATE_IDLE = 3'b000;
 localparam IOCTL_STATE_WRITE = 3'b001;
 localparam IOCTL_STATE_WAIT = 3'b010;
 localparam IOCTL_STATE_REFRESH = 3'b011;
 
-assign test_ioctl_state = ioctl_state;
 assign ioctl_wait = !initialized || ioctl_state != IOCTL_STATE_IDLE;
 assign refresh = set_refresh || ioctl_state == IOCTL_STATE_WAIT;
 
@@ -74,8 +67,6 @@ reg [27:0] init_state = 28'd0;
 wire initialized;
 assign initialized = init_state[23];
 always@(posedge clk_sys) begin
-   if(init_state < 28'd96)
-      screen_chars[init_state[10:0]] = init_state[7:0];
    if(!initialized) begin
       init_state <= init_state + 28'd1;
       if(init_state[19]) begin
@@ -86,16 +77,23 @@ end
 
 // ioctl state machine
 reg [2:0] ioctl_state = IOCTL_STATE_IDLE;
-
 always@(posedge clk_sys) begin
-   ch0_addr <= ioctl_wait || ioctl_wr ?
-      ioctl_addr[24:0] + FONT_ADDR_START :
-      FONT_ADDR_START + { 15'd0, bmp_index };
+   if(ioctl_wait || ioctl_wr)
+      ch0_addr <=ioctl_addr[24:0] + FONT_ADDR_START;
+   else if(cpu_state == CPU_STATE_SCREEN_INIT || 
+      cpu_state == CPU_STATE_SCREEN_WRITE || 
+      cpu_state == CPU_STATE_SCREEN_WRITE_WAIT || 
+      cpu_state == CPU_STATE_SCREEN_WRITE_WAIT2 ||
+      cpu_state == CPU_STATE_SCREEN_READ ||
+      cpu_state == CPU_STATE_SCREEN_READ_WAIT ||
+      cpu_state == CPU_STATE_SCREEN_READ_WAIT2)
+      ch0_addr <= SCREEN_ADDR_START + { 14'd0, char_cnt };   
+   else
+      ch0_addr <= FONT_ADDR_START + { 15'd0, bmp_index };
 
    if(!initialized) begin end
    else if(ioctl_state == IOCTL_STATE_IDLE) begin
       if(ioctl_wr) begin
-         //ch0_addr <= ioctl_addr[24:0] + FONT_ADDR_START;
          ch0_din <= ioctl_dout;
          ioctl_state <= IOCTL_STATE_WRITE;
       end
@@ -123,15 +121,24 @@ reg [6:0] char_h_cnt = 7'd0;
 reg [9:0] bmp_index;
 reg [7:0] bmp_data;
 reg [7:0] char_color = WHITE;
+reg [7:0] screen_char = 8'b0;
 
-localparam CPU_STATE_IDLE = 3'b000;
-localparam CPU_STATE_READ_FONT = 3'b001;
-localparam CPU_STATE_READ_FONT_WAIT = 3'b010;
-localparam CPU_STATE_PROCESS = 3'b011;
+localparam CPU_STATE_IDLE = 4'b0000;
+localparam CPU_STATE_READ_FONT = 4'b0001;
+localparam CPU_STATE_READ_FONT_WAIT = 4'b0010;
+localparam CPU_STATE_PROCESS = 4'b0011;
+localparam CPU_STATE_SCREEN_INIT = 4'b0100;
+localparam CPU_STATE_SCREEN_WRITE = 4'b0101;
+localparam CPU_STATE_SCREEN_WRITE_WAIT = 4'b0110;
+localparam CPU_STATE_SCREEN_WRITE_WAIT2 = 4'b0111;
+localparam CPU_STATE_SCREEN_READ = 4'b1000;
+localparam CPU_STATE_SCREEN_READ_WAIT = 4'b1001;
+localparam CPU_STATE_SCREEN_READ_WAIT2 = 4'b1010;
+
+localparam SCREEN_ADDR_START = 25'h0002000;
 
 // CPU state machine
-reg [2:0] cpu_state = CPU_STATE_IDLE;
-assign test_cpu_state = cpu_state;
+reg [3:0] cpu_state = CPU_STATE_SCREEN_INIT;
 always@(posedge clk_sys) begin
    if(ioctl_state == IOCTL_STATE_IDLE && !ioctl_wr && initialized) begin
       if(cpu_state == CPU_STATE_IDLE) begin
@@ -149,6 +156,42 @@ always@(posedge clk_sys) begin
             cpu_state <= CPU_STATE_PROCESS;
             set_refresh <= 1'b1;
          end
+      end
+      else if(cpu_state == CPU_STATE_SCREEN_READ) begin
+         cpu_state <= CPU_STATE_SCREEN_READ_WAIT;
+         ch0_rd <= 1'b1;
+      end
+      else if(cpu_state == CPU_STATE_SCREEN_READ_WAIT) begin
+         ch0_rd <= 1'b0;
+         if(!ch0_busy) begin
+            screen_char <= ch0_dout;
+            cpu_state <= CPU_STATE_SCREEN_READ_WAIT2;
+         end
+      end
+      else if(cpu_state == CPU_STATE_SCREEN_READ_WAIT2) begin
+         bmp_index <= { screen_char[6:0], 3'b0 };
+         cpu_state <= CPU_STATE_READ_FONT;
+      end
+      else if(cpu_state == CPU_STATE_SCREEN_INIT) begin
+         ch0_din <= 8'd1;
+         if(char_cnt < SCREEN_CHAR_TOTAL)
+            cpu_state <= CPU_STATE_SCREEN_WRITE;
+         else begin
+            cpu_state <= CPU_STATE_IDLE;
+            char_cnt <= 11'd0;
+         end
+      end
+      else if(cpu_state == CPU_STATE_SCREEN_WRITE) begin
+         ch0_wr <= 1'b1;
+         cpu_state <= CPU_STATE_SCREEN_WRITE_WAIT;
+      end
+      else if(cpu_state == CPU_STATE_SCREEN_WRITE_WAIT) begin
+         cpu_state <= ch0_busy ? CPU_STATE_SCREEN_WRITE_WAIT : CPU_STATE_SCREEN_WRITE_WAIT2;
+      end
+      else if(cpu_state == CPU_STATE_SCREEN_WRITE_WAIT2) begin
+         ch0_wr <= 1'b0;
+         char_cnt <= char_cnt + 11'd1;
+         cpu_state <= CPU_STATE_SCREEN_INIT;
       end
       else if(cpu_state == CPU_STATE_PROCESS) begin
          if(char_cnt < SCREEN_CHAR_TOTAL) begin
@@ -174,8 +217,8 @@ always@(posedge clk_sys) begin
                   // next character
                   char_v_bit_cnt <= 7'b0;
                   char_cnt <= char_cnt + 11'b1;
-                  bmp_index <= { screen_chars[char_cnt + 11'b1][6:0], 3'b0 };
-                  cpu_state <= CPU_STATE_IDLE;
+                  //bmp_index <= { screen_chars[char_cnt + 11'b1][6:0], 3'b0 };
+                  cpu_state <= CPU_STATE_SCREEN_READ;
                   if(char_h_cnt < SCREEN_CHAR_WIDTH[6:0] - 1'b1) begin
                      char_h_cnt <= char_h_cnt + 1'b1;
                      cpu_addr <= cpu_addr - PIXEL_REVERSE_V_END;
@@ -192,7 +235,8 @@ always@(posedge clk_sys) begin
             char_h_bit_cnt <= 7'd0;
             char_v_bit_cnt <= 7'd0;
             char_h_cnt <= 7'd0;
-            bmp_index <= { screen_chars[11'b0][6:0], 3'b0 };
+            //bmp_index <= { screen_chars[11'b0][6:0], 3'b0 };
+            //cpu_state <= CPU_STATE_SCREEN_READ;
             char_cnt <= 11'b0;
             cpu_wr <= 1'b0;
             cpu_state <= CPU_STATE_IDLE;
@@ -205,7 +249,7 @@ always@(posedge clk_sys) begin
       char_h_bit_cnt <= 7'd0;
       char_v_bit_cnt <= 7'd0;
       char_h_cnt <= 7'd0;
-      bmp_index <= { screen_chars[11'b0][6:0], 3'b0 };
+      //bmp_index <= { screen_chars[11'b0][6:0], 3'b0 };
       cpu_wr <= 1'b0;
    end
    
