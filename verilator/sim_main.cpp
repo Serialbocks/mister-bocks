@@ -32,7 +32,7 @@ using namespace std;
 // Simulation control
 // ------------------
 int initialReset = 48;
-bool run_enable = 0;
+bool run_enable = 1;
 int batchSize = 150000;
 bool single_step = 0;
 bool multi_step = 0;
@@ -163,14 +163,14 @@ int verilate() {
 			}
 		}
 
-		if (top->test_ioctl_state != test_ioctl_state) {
-			test_ioctl_state = top->test_ioctl_state;
-			console.AddLog(string_format("ioctl_state: %d", test_ioctl_state).c_str());
-		}
-		if (top->test_cpu_state != test_cpu_state) {
-			test_cpu_state = top->test_cpu_state;
-			console.AddLog(string_format("cpu_state: %d", test_cpu_state).c_str());
-		}
+		//if (top->test_ioctl_state != test_ioctl_state) {
+		//	test_ioctl_state = top->test_ioctl_state;
+		//	console.AddLog(string_format("ioctl_state: %d", test_ioctl_state).c_str());
+		//}
+		//if (top->test_cpu_state != test_cpu_state) {
+		//	test_cpu_state = top->test_cpu_state;
+		//	console.AddLog(string_format("cpu_state: %d", test_cpu_state).c_str());
+		//}
 
 		// Output pixels on rising edge of pixel clock
 		if (clk_pixel.IsRising()) {

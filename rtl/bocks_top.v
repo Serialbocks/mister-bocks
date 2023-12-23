@@ -67,13 +67,15 @@ localparam IOCTL_STATE_REFRESH = 3'b011;
 
 assign test_ioctl_state = ioctl_state;
 assign ioctl_wait = !initialized || ioctl_state != IOCTL_STATE_IDLE;
-assign refresh = ioctl_state == IOCTL_STATE_WAIT || set_refresh;
+assign refresh = set_refresh || ioctl_state == IOCTL_STATE_WAIT;
 
 // initialization
 reg [27:0] init_state = 28'd0;
 wire initialized;
-assign initialized = init_state[20];
+assign initialized = init_state[23];
 always@(posedge clk_sys) begin
+   if(init_state < 28'd96)
+      screen_chars[init_state[10:0]] = init_state[7:0];
    if(!initialized) begin
       init_state <= init_state + 28'd1;
       if(init_state[19]) begin
@@ -86,7 +88,7 @@ end
 reg [2:0] ioctl_state = IOCTL_STATE_IDLE;
 
 always@(posedge clk_sys) begin
-   ch0_addr <= (ioctl_state != IOCTL_STATE_IDLE) || ioctl_wr ?
+   ch0_addr <= ioctl_wait || ioctl_wr ?
       ioctl_addr[24:0] + FONT_ADDR_START :
       FONT_ADDR_START + { 15'd0, bmp_index };
 
@@ -95,18 +97,18 @@ always@(posedge clk_sys) begin
       if(ioctl_wr) begin
          //ch0_addr <= ioctl_addr[24:0] + FONT_ADDR_START;
          ch0_din <= ioctl_dout;
-         ch0_wr <= 1'b1;
          ioctl_state <= IOCTL_STATE_WRITE;
       end
    end
    else if(ioctl_state == IOCTL_STATE_WRITE) begin
-      ch0_wr <= 1'b0;
-      ioctl_state <= ch0_busy ? IOCTL_STATE_WRITE : IOCTL_STATE_WAIT;
+      ch0_wr <= 1'b1;
+      ioctl_state <= IOCTL_STATE_WAIT;
    end
    else if(ioctl_state == IOCTL_STATE_WAIT) begin
-      ioctl_state <= IOCTL_STATE_REFRESH;
+      ioctl_state <= ch0_busy ? IOCTL_STATE_WAIT : IOCTL_STATE_REFRESH;
    end
    else if(ioctl_state == IOCTL_STATE_REFRESH) begin
+      ch0_wr <= 1'b0;
       ioctl_state <= IOCTL_STATE_IDLE;
    end
 end
@@ -205,31 +207,6 @@ always@(posedge clk_sys) begin
       char_h_cnt <= 7'd0;
       bmp_index <= { screen_chars[11'b0][6:0], 3'b0 };
       cpu_wr <= 1'b0;
-
-      screen_chars[11'd0] <= 8'd0;
-      screen_chars[11'd1] <= 8'd1;
-      screen_chars[11'd2] <= 8'd2;
-      screen_chars[11'd3] <= 8'd3;
-      screen_chars[11'd4] <= 8'd4;
-      screen_chars[11'd5] <= 8'd5;
-      screen_chars[11'd6] <= 8'd6;
-      screen_chars[11'd7] <= 8'd7;
-      screen_chars[11'd8] <= 8'd8;
-      screen_chars[11'd9] <= 8'd9;
-      screen_chars[11'd10] <= 8'd10;
-      screen_chars[11'd11] <= 8'd11;
-      screen_chars[11'd12] <= 8'd12;
-      screen_chars[11'd13] <= 8'd13;
-      screen_chars[11'd14] <= 8'd14;
-      screen_chars[11'd15] <= 8'd15;
-      screen_chars[11'd16] <= 8'd16;
-      screen_chars[11'd17] <= 8'd17;
-      screen_chars[11'd18] <= 8'd18;
-      screen_chars[11'd19] <= 8'd19;
-      screen_chars[11'd20] <= 8'd20;
-      screen_chars[11'd21] <= 8'd21;
-      screen_chars[11'd22] <= 8'd22;
-      screen_chars[11'd23] <= 8'd23;
    end
    
 end
@@ -237,7 +214,7 @@ end
 wire refresh;
 reg set_refresh = 1'b0;
 reg sdram_init = 1'b1;
-reg[24:0]  ch0_addr;
+reg[24:0] ch0_addr;
 reg        ch0_rd = 1'd1;
 reg        ch0_wr = 1'd0;
 reg [7:0]  ch0_din = 8'd0;
