@@ -22,7 +22,10 @@ module top(
    input [24:0] ioctl_addr,
    input [7:0]  ioctl_dout,
    input [7:0]  ioctl_index,
-   output reg   ioctl_wait=1'b0
+   output       ioctl_wait,
+
+   output [2:0] test_ioctl_state/*verilator public_flat*/,
+   output [2:0] test_cpu_state/*verilator public_flat*/
 );
 
 reg        SDRAM_CLK;
@@ -56,6 +59,7 @@ bocks_top bocks_top (
    .ioctl_dout(ioctl_dout),
    .ioctl_wr(ioctl_wr & ioctl_download),
    .ioctl_addr ({ 2'b0, ioctl_addr }),
+   .ioctl_wait(ioctl_wait),
    .locked(locked),
    .SDRAM_CLK      ( SDRAM_CLK),
    .SDRAM_DQ       ( SDRAM_DQ                  ),
@@ -67,7 +71,9 @@ bocks_top bocks_top (
    .SDRAM_nWE      ( SDRAM_nWE                 ),
    .SDRAM_nRAS     ( SDRAM_nRAS                ),
    .SDRAM_nCAS     ( SDRAM_nCAS                ),
-   .SDRAM_CKE      ( SDRAM_CKE )
+   .SDRAM_CKE      ( SDRAM_CKE ),
+   .test_ioctl_state(test_ioctl_state),
+   .test_cpu_state(test_cpu_state)
 );
    
 endmodule

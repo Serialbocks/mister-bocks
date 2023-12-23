@@ -24,16 +24,19 @@
 #include <iostream>
 #include <fstream>
 #include <sim_bus.h>
+#include <memory>
+#include <string>
+#include <stdexcept>
 using namespace std;
 
 // Simulation control
 // ------------------
 int initialReset = 48;
-bool run_enable = 1;
+bool run_enable = 0;
 int batchSize = 150000;
 bool single_step = 0;
 bool multi_step = 0;
-int multi_step_amount = 1024;
+int multi_step_amount = 4;
 
 // Debug GUI 
 // ---------
@@ -64,6 +67,11 @@ const int button = 0;
 #define VGA_SCALE_Y vga_scale
 SimVideo video(VGA_WIDTH, VGA_HEIGHT, VGA_ROTATE);
 float vga_scale = 1.5f;
+
+// State machine outputs
+// --------------
+int test_ioctl_state = -1;
+int test_cpu_state = -1;
 
 // Verilog module
 // --------------
@@ -110,6 +118,17 @@ void resetSim() {
 	clk_ram.Reset();
 }
 
+template<typename ... Args>
+std::string string_format(const std::string& format, Args ... args)
+{
+	int size_s = std::snprintf(nullptr, 0, format.c_str(), args ...) + 1; // Extra space for '\0'
+	if (size_s <= 0) { throw std::runtime_error("Error during formatting."); }
+	auto size = static_cast<size_t>(size_s);
+	std::unique_ptr<char[]> buf(new char[size]);
+	std::snprintf(buf.get(), size, format.c_str(), args ...);
+	return std::string(buf.get(), buf.get() + size - 1); // We don't want the '\0' inside
+}
+
 int verilate() {
 
 	if (!Verilated::gotFinish()) {
@@ -142,6 +161,15 @@ int verilate() {
 				if (!tfp->isOpen()) tfp->open(Trace_File);
 				tfp->dump(main_time); //Trace
 			}
+		}
+
+		if (top->test_ioctl_state != test_ioctl_state) {
+			test_ioctl_state = top->test_ioctl_state;
+			console.AddLog(string_format("ioctl_state: %d", test_ioctl_state).c_str());
+		}
+		if (top->test_cpu_state != test_cpu_state) {
+			test_cpu_state = top->test_cpu_state;
+			console.AddLog(string_format("cpu_state: %d", test_cpu_state).c_str());
 		}
 
 		// Output pixels on rising edge of pixel clock
@@ -247,7 +275,7 @@ int main(int argc, char** argv, char** env) {
 		if (multi_step == 1) { multi_step = 0; }
 		if (ImGui::Button("Multi Step")) { run_enable = 0; multi_step = 1; }
 		//ImGui::SameLine();
-		ImGui::SliderInt("Multi step amount", &multi_step_amount, 8, 1024);
+		ImGui::SliderInt("Multi step amount", &multi_step_amount, 4, 1024);
 
 		ImGui::End();
 

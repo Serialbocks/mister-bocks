@@ -222,6 +222,7 @@ wire  [7:0] ioctl_dout;
 wire        ioctl_wr;
 wire [26:0] ioctl_addr;
 wire  [7:0] ioctl_index;
+wire        ioctl_wait;
 
 hps_io #(.STRLEN(($size(CONF_STR)>>3)), .PS2DIV(1000), .WIDE(0)) hps_io
 (
@@ -235,6 +236,7 @@ hps_io #(.STRLEN(($size(CONF_STR)>>3)), .PS2DIV(1000), .WIDE(0)) hps_io
 	.ioctl_wr(ioctl_wr),
 	.ioctl_dout(ioctl_dout),
 	.ioctl_index(ioctl_index),
+	.ioctl_wait(ioctl_wait)
 );
 
 
@@ -273,6 +275,7 @@ bocks_top bocks_top (
 	.ioctl_dout		(ioctl_dout),
 	.ioctl_wr		(ioctl_wr & ioctl_download),
 	.ioctl_addr 	(ioctl_addr),
+	.ioctl_wait     (ioctl_wait),
 	.locked			(locked),
 	.SDRAM_CLK	    ( SDRAM_CLK 			    ),
 	.SDRAM_DQ       ( SDRAM_DQ                  ),
