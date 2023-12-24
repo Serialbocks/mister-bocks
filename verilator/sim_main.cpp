@@ -72,6 +72,8 @@ float vga_scale = 1.5f;
 // --------------
 int test_ioctl_state = -1;
 int test_cpu_state = -1;
+int test_ch0_dout = -1;
+int test_ch0_addr = -1;
 
 // Verilog module
 // --------------
@@ -163,14 +165,22 @@ int verilate() {
 			}
 		}
 
-		//if (top->test_ioctl_state != test_ioctl_state) {
-		//	test_ioctl_state = top->test_ioctl_state;
-		//	console.AddLog(string_format("ioctl_state: %d", test_ioctl_state).c_str());
-		//}
-		//if (top->test_cpu_state != test_cpu_state) {
-		//	test_cpu_state = top->test_cpu_state;
-		//	console.AddLog(string_format("cpu_state: %d", test_cpu_state).c_str());
-		//}
+		if (top->test_ioctl_state != test_ioctl_state) {
+			test_ioctl_state = top->test_ioctl_state;
+			console.AddLog(string_format("ioctl_state: %d", test_ioctl_state).c_str());
+		}
+		if (top->test_cpu_state != test_cpu_state) {
+			test_cpu_state = top->test_cpu_state;
+			console.AddLog(string_format("cpu_state: %d", test_cpu_state).c_str());
+		}
+		if (top->test_ch0_dout != test_ch0_dout) {
+			test_ch0_dout = top->test_ch0_dout;
+			console.AddLog(string_format("ch0_dout: %d", test_ch0_dout).c_str());
+		}
+		if (top->test_ch0_addr != test_ch0_addr) {
+			test_ch0_addr = top->test_ch0_addr;
+			console.AddLog(string_format("ch0_addr: %d", test_ch0_addr).c_str());
+		}
 
 		// Output pixels on rising edge of pixel clock
 		if (clk_pixel.IsRising()) {

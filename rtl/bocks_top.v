@@ -32,7 +32,12 @@ module bocks_top (
 	output        SDRAM_nCAS,
 	output        SDRAM_nRAS,
 	output        SDRAM_nWE,
-   output        SDRAM_CKE
+   output        SDRAM_CKE,
+
+   output [3:0] test_cpu_state,
+   output [2:0] test_ioctl_state,
+   output [7:0] test_ch0_dout,
+   output [24:0] test_ch0_addr
 );
 
 parameter SCALE = 2;
@@ -75,8 +80,8 @@ always@(posedge clk_sys) begin
    end
 end
 
-// ioctl state machine
-reg [2:0] ioctl_state = IOCTL_STATE_IDLE;
+// ch0 input control
+assign test_ch0_addr = ch0_addr;
 always@(posedge clk_sys) begin
    if(ioctl_wait || ioctl_wr)
       ch0_addr <=ioctl_addr[24:0] + FONT_ADDR_START;
@@ -91,22 +96,33 @@ always@(posedge clk_sys) begin
    else
       ch0_addr <= FONT_ADDR_START + { 15'd0, bmp_index };
 
+   if(ioctl_state == IOCTL_STATE_WRITE ||
+      ioctl_state == IOCTL_STATE_WAIT ||
+      cpu_state == CPU_STATE_SCREEN_WRITE ||
+      cpu_state == CPU_STATE_SCREEN_WRITE_WAIT)
+      ch0_wr <= 1'd1;
+   else if(ioctl_state == IOCTL_STATE_REFRESH ||
+      cpu_state == CPU_STATE_SCREEN_WRITE_WAIT2)
+      ch0_wr <= 1'd0;
+end
+
+// ioctl state machine
+reg [2:0] ioctl_state = IOCTL_STATE_IDLE;
+assign test_ioctl_state = ioctl_state;
+always@(posedge clk_sys) begin
    if(!initialized) begin end
-   else if(ioctl_state == IOCTL_STATE_IDLE) begin
-      if(ioctl_wr) begin
-         ch0_din <= ioctl_dout;
-         ioctl_state <= IOCTL_STATE_WRITE;
-      end
+   else if(ioctl_state == IOCTL_STATE_IDLE && ioctl_wr) begin
+      ioctl_state <= IOCTL_STATE_WRITE;
    end
    else if(ioctl_state == IOCTL_STATE_WRITE) begin
-      ch0_wr <= 1'b1;
+      //ch0_wr <= 1'b1;
       ioctl_state <= IOCTL_STATE_WAIT;
    end
    else if(ioctl_state == IOCTL_STATE_WAIT) begin
       ioctl_state <= ch0_busy ? IOCTL_STATE_WAIT : IOCTL_STATE_REFRESH;
    end
    else if(ioctl_state == IOCTL_STATE_REFRESH) begin
-      ch0_wr <= 1'b0;
+      //ch0_wr <= 1'b0;
       ioctl_state <= IOCTL_STATE_IDLE;
    end
 end
@@ -139,6 +155,8 @@ localparam SCREEN_ADDR_START = 25'h0002000;
 
 // CPU state machine
 reg [3:0] cpu_state = CPU_STATE_SCREEN_INIT;
+assign test_cpu_state = cpu_state;
+assign test_ch0_dout = ch0_dout;
 always@(posedge clk_sys) begin
    if(ioctl_state == IOCTL_STATE_IDLE && !ioctl_wr && initialized) begin
       if(cpu_state == CPU_STATE_IDLE) begin
@@ -158,22 +176,22 @@ always@(posedge clk_sys) begin
          end
       end
       else if(cpu_state == CPU_STATE_SCREEN_READ) begin
-         cpu_state <= CPU_STATE_SCREEN_READ_WAIT;
+         cpu_state <= ch0_busy ? 
+            CPU_STATE_SCREEN_READ_WAIT : CPU_STATE_SCREEN_READ;
          ch0_rd <= 1'b1;
       end
       else if(cpu_state == CPU_STATE_SCREEN_READ_WAIT) begin
-         ch0_rd <= 1'b0;
          if(!ch0_busy) begin
+            ch0_rd <= 1'b0;
             screen_char <= ch0_dout;
             cpu_state <= CPU_STATE_SCREEN_READ_WAIT2;
          end
       end
       else if(cpu_state == CPU_STATE_SCREEN_READ_WAIT2) begin
          bmp_index <= { screen_char[6:0], 3'b0 };
-         cpu_state <= CPU_STATE_READ_FONT;
+         cpu_state <= CPU_STATE_IDLE;
       end
       else if(cpu_state == CPU_STATE_SCREEN_INIT) begin
-         ch0_din <= 8'd1;
          if(char_cnt < SCREEN_CHAR_TOTAL)
             cpu_state <= CPU_STATE_SCREEN_WRITE;
          else begin
@@ -182,20 +200,22 @@ always@(posedge clk_sys) begin
          end
       end
       else if(cpu_state == CPU_STATE_SCREEN_WRITE) begin
-         ch0_wr <= 1'b1;
+         //ch0_wr <= 1'b1;
          cpu_state <= CPU_STATE_SCREEN_WRITE_WAIT;
       end
       else if(cpu_state == CPU_STATE_SCREEN_WRITE_WAIT) begin
-         cpu_state <= ch0_busy ? CPU_STATE_SCREEN_WRITE_WAIT : CPU_STATE_SCREEN_WRITE_WAIT2;
+         cpu_state <= ch0_busy ? 
+            CPU_STATE_SCREEN_WRITE_WAIT : CPU_STATE_SCREEN_WRITE_WAIT2;
       end
       else if(cpu_state == CPU_STATE_SCREEN_WRITE_WAIT2) begin
-         ch0_wr <= 1'b0;
+         //ch0_wr <= 1'b0;
          char_cnt <= char_cnt + 11'd1;
          cpu_state <= CPU_STATE_SCREEN_INIT;
       end
       else if(cpu_state == CPU_STATE_PROCESS) begin
          if(char_cnt < SCREEN_CHAR_TOTAL) begin
-            cpu_data <= bmp_data[3'd7 - char_h_bit_cnt[1+SCALE:SCALE-1]] ? char_color : BLACK;
+            cpu_data <= bmp_data[3'd7 - char_h_bit_cnt[1+SCALE:SCALE-1]] ? 
+               char_color : BLACK;
 
 	         if(char_h_bit_cnt < CHAR_WIDTH) begin
                cpu_wr <= char_v_bit_cnt == CHAR_HEIGHT ? 1'b0 : 1'b1;
@@ -236,10 +256,10 @@ always@(posedge clk_sys) begin
             char_v_bit_cnt <= 7'd0;
             char_h_cnt <= 7'd0;
             //bmp_index <= { screen_chars[11'b0][6:0], 3'b0 };
-            //cpu_state <= CPU_STATE_SCREEN_READ;
+            cpu_state <= CPU_STATE_SCREEN_READ;
             char_cnt <= 11'b0;
             cpu_wr <= 1'b0;
-            cpu_state <= CPU_STATE_IDLE;
+            //cpu_state <= CPU_STATE_IDLE;
          end
       end
    end
@@ -251,6 +271,7 @@ always@(posedge clk_sys) begin
       char_h_cnt <= 7'd0;
       //bmp_index <= { screen_chars[11'b0][6:0], 3'b0 };
       cpu_wr <= 1'b0;
+      cpu_state <= CPU_STATE_IDLE;
    end
    
 end
@@ -260,8 +281,12 @@ reg set_refresh = 1'b0;
 reg sdram_init = 1'b1;
 reg[24:0] ch0_addr;
 reg        ch0_rd = 1'd1;
-reg        ch0_wr = 1'd0;
-reg [7:0]  ch0_din = 8'd0;
+//wire ch0_wr = (ioctl_state == IOCTL_STATE_WRITE ||
+//   ioctl_state == IOCTL_STATE_WAIT ||
+//   cpu_state == CPU_STATE_SCREEN_WRITE ||
+//   cpu_state == CPU_STATE_SCREEN_WRITE_WAIT) ? 1'd1 : 1'd0;
+reg ch0_wr = 1'd0;
+wire [7:0] ch0_din = (ioctl_wait || ioctl_wr) ? ioctl_dout : 8'd1;
 wire [7:0] ch0_dout;
 wire       ch0_busy;
 
