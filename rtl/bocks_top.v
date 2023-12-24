@@ -97,8 +97,6 @@ always@(posedge clk_sys) begin
       ch0_addr <= FONT_ADDR_START + { 15'd0, bmp_index };
 
    if(ioctl_state == IOCTL_STATE_WRITE ||
-      ioctl_state == IOCTL_STATE_WAIT ||
-      cpu_state == CPU_STATE_SCREEN_WRITE ||
       cpu_state == CPU_STATE_SCREEN_WRITE_WAIT)
       ch0_wr <= 1'd1;
    else if(ioctl_state == IOCTL_STATE_REFRESH ||
@@ -288,7 +286,7 @@ reg        ch0_rd = 1'd1;
 //   cpu_state == CPU_STATE_SCREEN_WRITE ||
 //   cpu_state == CPU_STATE_SCREEN_WRITE_WAIT) ? 1'd1 : 1'd0;
 reg ch0_wr = 1'd0;
-wire [7:0] ch0_din = (ioctl_wait || ioctl_wr) ? ioctl_dout : 8'd1;
+wire [7:0] ch0_din = (ioctl_wait || ioctl_wr) ? ioctl_dout : char_cnt[7:0];
 wire [7:0] ch0_dout;
 wire       ch0_busy;
 
