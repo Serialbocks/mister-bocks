@@ -175,11 +175,11 @@ int verilate() {
 		}
 		if (top->test_ch0_dout != test_ch0_dout) {
 			test_ch0_dout = top->test_ch0_dout;
-			console.AddLog(string_format("ch0_dout: %d", test_ch0_dout).c_str());
+			console.AddLog(string_format("ch0_dout: 0x%04x", test_ch0_dout).c_str());
 		}
 		if (top->test_ch0_addr != test_ch0_addr) {
 			test_ch0_addr = top->test_ch0_addr;
-			console.AddLog(string_format("ch0_addr: %d", test_ch0_addr).c_str());
+			console.AddLog(string_format("ch0_addr: 0x%04x", test_ch0_addr).c_str());
 		}
 
 		// Output pixels on rising edge of pixel clock

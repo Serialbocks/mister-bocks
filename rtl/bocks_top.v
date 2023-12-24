@@ -192,11 +192,13 @@ always@(posedge clk_sys) begin
          cpu_state <= CPU_STATE_IDLE;
       end
       else if(cpu_state == CPU_STATE_SCREEN_INIT) begin
-         if(char_cnt < SCREEN_CHAR_TOTAL)
-            cpu_state <= CPU_STATE_SCREEN_WRITE;
-         else begin
-            cpu_state <= CPU_STATE_IDLE;
-            char_cnt <= 11'd0;
+         if(initialized) begin
+            if(char_cnt < SCREEN_CHAR_TOTAL)
+               cpu_state <= CPU_STATE_SCREEN_WRITE;
+            else begin
+               cpu_state <= CPU_STATE_IDLE;
+               char_cnt <= 11'd0;
+            end
          end
       end
       else if(cpu_state == CPU_STATE_SCREEN_WRITE) begin
@@ -271,7 +273,7 @@ always@(posedge clk_sys) begin
       char_h_cnt <= 7'd0;
       //bmp_index <= { screen_chars[11'b0][6:0], 3'b0 };
       cpu_wr <= 1'b0;
-      cpu_state <= CPU_STATE_IDLE;
+      cpu_state <= CPU_STATE_SCREEN_INIT;
    end
    
 end
