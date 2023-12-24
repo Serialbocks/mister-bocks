@@ -113,14 +113,12 @@ always@(posedge clk_sys) begin
       ioctl_state <= IOCTL_STATE_WRITE;
    end
    else if(ioctl_state == IOCTL_STATE_WRITE) begin
-      //ch0_wr <= 1'b1;
       ioctl_state <= IOCTL_STATE_WAIT;
    end
    else if(ioctl_state == IOCTL_STATE_WAIT) begin
       ioctl_state <= ch0_busy ? IOCTL_STATE_WAIT : IOCTL_STATE_REFRESH;
    end
    else if(ioctl_state == IOCTL_STATE_REFRESH) begin
-      //ch0_wr <= 1'b0;
       ioctl_state <= IOCTL_STATE_IDLE;
    end
 end
@@ -200,7 +198,6 @@ always@(posedge clk_sys) begin
          end
       end
       else if(cpu_state == CPU_STATE_SCREEN_WRITE) begin
-         //ch0_wr <= 1'b1;
          cpu_state <= CPU_STATE_SCREEN_WRITE_WAIT;
       end
       else if(cpu_state == CPU_STATE_SCREEN_WRITE_WAIT) begin
@@ -208,7 +205,6 @@ always@(posedge clk_sys) begin
             CPU_STATE_SCREEN_WRITE_WAIT : CPU_STATE_SCREEN_WRITE_WAIT2;
       end
       else if(cpu_state == CPU_STATE_SCREEN_WRITE_WAIT2) begin
-         //ch0_wr <= 1'b0;
          char_cnt <= char_cnt + 11'd1;
          cpu_state <= CPU_STATE_SCREEN_INIT;
       end
@@ -269,7 +265,6 @@ always@(posedge clk_sys) begin
       char_h_bit_cnt <= 7'd0;
       char_v_bit_cnt <= 7'd0;
       char_h_cnt <= 7'd0;
-      //bmp_index <= { screen_chars[11'b0][6:0], 3'b0 };
       cpu_wr <= 1'b0;
       cpu_state <= CPU_STATE_SCREEN_INIT;
    end
@@ -281,12 +276,10 @@ reg set_refresh = 1'b0;
 reg sdram_init = 1'b1;
 reg[24:0] ch0_addr;
 reg        ch0_rd = 1'd1;
-//wire ch0_wr = (ioctl_state == IOCTL_STATE_WRITE ||
-//   ioctl_state == IOCTL_STATE_WAIT ||
-//   cpu_state == CPU_STATE_SCREEN_WRITE ||
-//   cpu_state == CPU_STATE_SCREEN_WRITE_WAIT) ? 1'd1 : 1'd0;
 reg ch0_wr = 1'd0;
-wire [7:0] ch0_din = (ioctl_wait || ioctl_wr) ? ioctl_dout : char_cnt[7:0];
+wire [7:0] ch0_din = (ioctl_wait || ioctl_wr) ? 
+   ioctl_dout : 
+   char_cnt < 11'd96 ? char_cnt[7:0] : 8'd0;
 wire [7:0] ch0_dout;
 wire       ch0_busy;
 
