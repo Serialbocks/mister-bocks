@@ -5,8 +5,8 @@ module bocks_top (
    input  clk_sys,
 
    // VGA output
-   output 	hs,
-   output 	vs,
+   output     hs,
+   output     vs,
    output [7:0] r,
    output [7:0] g,
    output [7:0] b,
@@ -23,15 +23,15 @@ module bocks_top (
 
    // sdram signals
    output        SDRAM_CLK,
-	output [12:0] SDRAM_A,
-	output  [1:0] SDRAM_BA,
-	inout  [15:0] SDRAM_DQ,
-	output        SDRAM_DQML,
-	output        SDRAM_DQMH,
-	output        SDRAM_nCS,
-	output        SDRAM_nCAS,
-	output        SDRAM_nRAS,
-	output        SDRAM_nWE,
+   output [12:0] SDRAM_A,
+   output  [1:0] SDRAM_BA,
+   inout  [15:0] SDRAM_DQ,
+   output        SDRAM_DQML,
+   output        SDRAM_DQMH,
+   output        SDRAM_nCS,
+   output        SDRAM_nCAS,
+   output        SDRAM_nRAS,
+   output        SDRAM_nWE,
    output        SDRAM_CKE,
 
    output [3:0] test_cpu_state,
@@ -92,7 +92,7 @@ always@(posedge clk_sys) begin
       cpu_state == CPU_STATE_SCREEN_READ ||
       cpu_state == CPU_STATE_SCREEN_READ_WAIT ||
       cpu_state == CPU_STATE_SCREEN_READ_WAIT2)
-      ch0_addr <= SCREEN_ADDR_START + { 14'd0, char_cnt };   
+      ch0_addr <= SCREEN_ADDR_START + { 14'd0, char_index };   
    else
       ch0_addr <= FONT_ADDR_START + { 15'd0, bmp_index };
 
@@ -126,7 +126,7 @@ end
 reg cpu_wr = 1'b0;
 reg [7:0] cpu_data = 8'b00000000;
 reg [31:0] cpu_addr = 32'h00000000;
-reg [10:0] char_cnt = 11'd0;
+reg [10:0] char_index = 11'd0;
 reg [6:0] char_h_bit_cnt = 7'd0;
 reg [6:0] char_v_bit_cnt = 7'd0;
 reg [6:0] char_h_cnt = 7'd0;
@@ -189,11 +189,11 @@ always@(posedge clk_sys) begin
       end
       else if(cpu_state == CPU_STATE_SCREEN_INIT) begin
          if(initialized) begin
-            if(char_cnt < SCREEN_CHAR_TOTAL)
+            if(char_index < SCREEN_CHAR_TOTAL)
                cpu_state <= CPU_STATE_SCREEN_WRITE;
             else begin
                cpu_state <= CPU_STATE_IDLE;
-               char_cnt <= 11'd0;
+               char_index <= 11'd0;
             end
          end
       end
@@ -205,15 +205,15 @@ always@(posedge clk_sys) begin
             CPU_STATE_SCREEN_WRITE_WAIT : CPU_STATE_SCREEN_WRITE_WAIT2;
       end
       else if(cpu_state == CPU_STATE_SCREEN_WRITE_WAIT2) begin
-         char_cnt <= char_cnt + 11'd1;
+         char_index <= char_index + 11'd1;
          cpu_state <= CPU_STATE_SCREEN_INIT;
       end
       else if(cpu_state == CPU_STATE_PROCESS) begin
-         if(char_cnt < SCREEN_CHAR_TOTAL) begin
+         if(char_index < SCREEN_CHAR_TOTAL) begin
             cpu_data <= bmp_data[3'd7 - char_h_bit_cnt[1+SCALE:SCALE-1]] ? 
                char_color : BLACK;
 
-	         if(char_h_bit_cnt < CHAR_WIDTH) begin
+             if(char_h_bit_cnt < CHAR_WIDTH) begin
                cpu_wr <= char_v_bit_cnt == CHAR_HEIGHT ? 1'b0 : 1'b1;
                char_h_bit_cnt <= char_h_bit_cnt + 7'b1;
                cpu_addr <= cpu_addr + 1;
@@ -232,8 +232,8 @@ always@(posedge clk_sys) begin
                else begin
                   // next character
                   char_v_bit_cnt <= 7'b0;
-                  char_cnt <= char_cnt + 11'b1;
-                  //bmp_index <= { screen_chars[char_cnt + 11'b1][6:0], 3'b0 };
+                  char_index <= char_index + 11'b1;
+                  //bmp_index <= { screen_chars[char_index + 11'b1][6:0], 3'b0 };
                   cpu_state <= CPU_STATE_SCREEN_READ;
                   if(char_h_cnt < SCREEN_CHAR_WIDTH[6:0] - 1'b1) begin
                      char_h_cnt <= char_h_cnt + 1'b1;
@@ -253,7 +253,7 @@ always@(posedge clk_sys) begin
             char_h_cnt <= 7'd0;
             //bmp_index <= { screen_chars[11'b0][6:0], 3'b0 };
             cpu_state <= CPU_STATE_SCREEN_READ;
-            char_cnt <= 11'b0;
+            char_index <= 11'b0;
             cpu_wr <= 1'b0;
             //cpu_state <= CPU_STATE_IDLE;
          end
@@ -261,7 +261,7 @@ always@(posedge clk_sys) begin
    end
    else begin
       cpu_addr <= 32'h00000000;
-      char_cnt <= 11'b0;
+      char_index <= 11'b0;
       char_h_bit_cnt <= 7'd0;
       char_v_bit_cnt <= 7'd0;
       char_h_cnt <= 7'd0;
@@ -279,17 +279,17 @@ reg        ch0_rd = 1'd1;
 reg ch0_wr = 1'd0;
 wire [7:0] ch0_din = (ioctl_wait || ioctl_wr) ? 
    ioctl_dout : 
-   char_cnt < 11'd96 ? char_cnt[7:0] : 8'd0;
+   char_index < 11'd96 ? char_index[7:0] : 8'd0;
 wire [7:0] ch0_dout;
 wire       ch0_busy;
 
 sdram sdram
 (
-   .SDRAM_CLK	    ( SDRAM_CLK     ),
-	.SDRAM_DQ       ( SDRAM_DQ      ),
+   .SDRAM_CLK      ( SDRAM_CLK     ),
+   .SDRAM_DQ       ( SDRAM_DQ      ),
    .SDRAM_A        ( SDRAM_A       ),
-	.SDRAM_DQMH     ( SDRAM_DQMH 	  ),
-	.SDRAM_DQML     ( SDRAM_DQML 	  ),
+   .SDRAM_DQMH     ( SDRAM_DQMH    ),
+   .SDRAM_DQML     ( SDRAM_DQML    ),
    .SDRAM_nCS      ( SDRAM_nCS     ),
    .SDRAM_BA       ( SDRAM_BA      ),
    .SDRAM_nWE      ( SDRAM_nWE     ),
@@ -297,47 +297,47 @@ sdram sdram
    .SDRAM_nCAS     ( SDRAM_nCAS    ),
    .SDRAM_CKE      ( SDRAM_CKE     ),
 
-	// system interface
-	.clk        (clk_ram),
-	.init       (sdram_init),
+    // system interface
+    .clk        (clk_ram),
+    .init       (sdram_init),
 
-	// cpu/chipset interface
-	.ch0_addr   (ch0_addr),
-	.ch0_wr     (ch0_wr),
-	.ch0_din    (ch0_din),
-	.ch0_rd     (ch0_rd),
-	.ch0_dout   (ch0_dout),
-	.ch0_busy   (ch0_busy),
+    // cpu/chipset interface
+    .ch0_addr   (ch0_addr),
+    .ch0_wr     (ch0_wr),
+    .ch0_din    (ch0_din),
+    .ch0_rd     (ch0_rd),
+    .ch0_dout   (ch0_dout),
+    .ch0_busy   (ch0_busy),
 
-	.ch1_addr   ( ),
-	.ch1_wr     ( 1'b0 ),
-	.ch1_din    ( ),
-	.ch1_rd     ( 1'b0 ),
-	.ch1_dout   ( ),
-	.ch1_busy   ( ),
+    .ch1_addr   ( ),
+    .ch1_wr     ( 1'b0 ),
+    .ch1_din    ( ),
+    .ch1_rd     ( 1'b0 ),
+    .ch1_dout   ( ),
+    .ch1_busy   ( ),
 
-	// reserved for backup ram save/load
-	.ch2_addr   ( ),
-	.ch2_wr     ( 1'b0 ),
-	.ch2_din    ( ),
-	.ch2_rd     ( 1'b0 ),
-	.ch2_dout   ( ),
-	.ch2_busy   ( ),
+    // reserved for backup ram save/load
+    .ch2_addr   ( ),
+    .ch2_wr     ( 1'b0 ),
+    .ch2_din    ( ),
+    .ch2_rd     ( 1'b0 ),
+    .ch2_dout   ( ),
+    .ch2_busy   ( ),
 
-	.refresh    (refresh)
+    .refresh    (refresh)
 );
 
 vga vga (
-	.clk_pixel(clk_pixel),
-	.clk_cpu(clk_sys),
-	.cpu_wr(cpu_wr),
-	.cpu_addr(cpu_addr),
-	.cpu_data(cpu_data),
-	.hs    (hs),
-	.vs    (vs),
-	.r     (r),
-	.g     (g),
-	.b     (b),
+   .clk_pixel(clk_pixel),
+   .clk_cpu(clk_sys),
+   .cpu_wr(cpu_wr),
+   .cpu_addr(cpu_addr),
+   .cpu_data(cpu_data),
+   .hs    (hs),
+   .vs    (vs),
+   .r     (r),
+   .g     (g),
+   .b     (b),
    .VGA_HB(VGA_HB),
    .VGA_VB(VGA_VB),
    .VGA_DE(VGA_DE)
